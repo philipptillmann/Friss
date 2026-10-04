@@ -1,0 +1,7 @@
+data
+.env
+.env.*
+.preview-key
+.git
+__pycache__
+tests

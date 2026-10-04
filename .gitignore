@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+.preview-key
+__pycache__/
+*.pyc
+data/*
+!data/.gitkeep
