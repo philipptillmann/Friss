@@ -6,7 +6,7 @@ services:
       FRISS_API_KEY: ${FRISS_API_KEY:?Set FRISS_API_KEY in .env}
       FRISS_DATA_DIR: /data
     ports:
-      - "${FRISS_BIND_IP:-127.0.0.1}:8000:8000"
+      - "${FRISS_BIND_IP:-127.0.0.1}:${FRISS_PORT:-8001}:8000"
     volumes:
       - ./data:/data
     cap_drop: [ALL]

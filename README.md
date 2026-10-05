@@ -93,3 +93,21 @@ docker compose logs --tail=50
 Für ein privates Repository ist ein für GitHub autorisierter SSH-Schlüssel oder GitHub CLI erforderlich. Ein ChatGPT-GitHub-Anschluss authentifiziert deinen Server nicht automatisch. Keine Tokens in Clone-URLs speichern. Auf dem iPhone über VPN `http://SERVER-IP:8000/docs` öffnen und Authorize verwenden. Dort zuerst GET /health und GET /foods mit q=Apfel testen. POST /entries mit einer neuen UUID testen; denselben Request wiederholen und prüfen, dass nur ein Eintrag entsteht.
 
 Die Server-Entwicklung erfolgt im Branch `server`. `Friss.shortcut` aus dem bisherigen Projekt bleibt erhalten und ist noch nicht an diese API angepasst.
+
+## Dashboard (Version 1.1.0)
+
+Öffne `http://SERVER-IP:8001/`, gib den API-Schlüssel ein und wähle Deutsch oder Englisch. Der Schlüssel bleibt im sessionStorage dieses Browser-Tabs. Persönliche API-Daten bleiben geschützt. Tagesübersicht, BLS-Suche, Text, Barcode, JPEG-Upload, Wasser, Koffein und Alkohol sowie Zuordnung offener Einträge sind integriert. Kein Health-Schreiben aus dem Browser. Pro Tag maximal 1.000 Einträge; dann wird vor unvollständigen Summen gewarnt.
+
+`FRISS_PORT=8001` konfiguriert nun den äußeren Port. Auf deinem Server vor dem Update die lokal bearbeitete Compose-Datei sichern, dann den Branch aktualisieren:
+
+```bash
+cd ~/Friss
+cp compose.yaml /tmp/friss-compose-before-dashboard.yaml
+git restore compose.yaml
+git pull --ff-only origin server
+# In .env bei Bedarf FRISS_PORT=8001 ergänzen.
+docker compose up -d --build
+docker compose logs --tail=50
+```
+
+Einträge bleiben im unverändert eingebundenen `data`-Ordner. Diese Update-Anleitung setzt voraus, dass nur der Port in compose.yaml lokal geändert wurde. Weitere eigene Änderungen vor dem Restore sichern.

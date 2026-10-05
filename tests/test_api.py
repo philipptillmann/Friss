@@ -59,4 +59,16 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post('/health-export/'+p['id']+'/claim')).status_code,409)
         self.assertEqual((await self.client.get('/foods',params={'q':'Apple','lang':'en'})).json()[0]['display_name'],'Apple')
 
+    async def test_dashboard_and_date_filter(self):
+        response=await self.client.get('/',headers={'Authorization':'bad'})
+        self.assertEqual(response.status_code,200)
+        self.assertIn('Dashboard',response.text)
+        self.assertEqual((await self.client.get('/entries',headers={'Authorization':'bad'})).status_code,401)
+        await self.client.post('/entries',json=self.payload())
+        response=await self.client.get('/entries',params={'start':'2026-10-04T00:00:00+02:00','end':'2026-10-05T00:00:00+02:00'})
+        self.assertEqual(len(response.json()),1)
+        response=await self.client.get('/entries',params={'start':'2026-10-05T00:00:00+02:00'})
+        self.assertEqual(response.json(),[])
+        self.assertEqual((await self.client.get('/entries',params={'start':'2026-10-04T00:00:00'})).status_code,422)
+
 if __name__=='__main__': unittest.main()

@@ -14,6 +14,8 @@ from uuid import UUID, uuid4
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
 DATA = Path(os.getenv('FRISS_DATA_DIR', 'data'))
@@ -51,7 +53,7 @@ async def auth(credentials: HTTPAuthorizationCredentials | None = Depends(bearer
     if not KEY or credentials is None or not hmac.compare_digest(credentials.credentials, KEY):
         raise HTTPException(401, 'Invalid API key')
 
-app = FastAPI(title='Friss', version='1.0.0', lifespan=lifespan, dependencies=[Depends(auth)])
+app = FastAPI(title='Friss', version='1.1.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -165,18 +167,18 @@ async def process(e):
     if e['nutrients']:
         e.update(status='processed', reason=None)
 
-@app.get('/health')
+@app.get('/health', dependencies=[Depends(auth)])
 async def health():
     return {'status':'ok'}
 
-@app.get('/foods')
+@app.get('/foods', dependencies=[Depends(auth)])
 async def foods(q: str = Query(min_length=1,max_length=200), lang: Literal['de','en']='de', limit:int=Query(default=20,ge=1,le=100)):
     query = normalize(q).replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
     with db() as c:
         rows=c.execute("SELECT payload FROM foods WHERE search LIKE ? ESCAPE '\\' ORDER BY code LIMIT ?", ('%'+query+'%',limit)).fetchall()
     return [{'display_name':f['name_'+lang], **f} for f in [json.loads(r['payload']) for r in rows]]
 
-@app.post('/entries', status_code=201)
+@app.post('/entries', status_code=201, dependencies=[Depends(auth)])
 async def create(entry: Entry):
     payload=entry.model_dump(mode='json')
     fingerprint=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
@@ -194,14 +196,16 @@ async def create(entry: Entry):
     save_entry(e)
     return e
 
-@app.get('/entries')
-async def entries(status: str | None=None, limit:int=Query(default=100,ge=1,le=1000)):
+@app.get('/entries', dependencies=[Depends(auth)])
+async def entries(status: str | None=None, limit:int=Query(default=100,ge=1,le=1000), start:datetime | None=None, end:datetime | None=None):
     with db() as c:
         rows=c.execute('SELECT payload FROM entries ORDER BY rowid DESC').fetchall()
     result=[json.loads(r['payload']) for r in rows]
-    return [e for e in result if status is None or e['status']==status][:limit]
+    if any(t is not None and t.utcoffset() is None for t in (start,end)):
+        raise HTTPException(422, 'Date filters require timezone')
+    return [e for e in result if (status is None or e['status']==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
 
-@app.get('/entries/{id}')
+@app.get('/entries/{id}', dependencies=[Depends(auth)])
 async def get_entry(id: UUID):
     return load_entry(id)
 
@@ -209,7 +213,7 @@ class Resolution(BaseModel):
     bls_code: str
     quantity: Quantity
 
-@app.post('/entries/{id}/resolve')
+@app.post('/entries/{id}/resolve', dependencies=[Depends(auth)])
 async def resolve(id:UUID, resolution:Resolution):
     e=load_entry(id)
     if e['health_status'] != 'pending':
@@ -219,7 +223,7 @@ async def resolve(id:UUID, resolution:Resolution):
     save_entry(e)
     return e
 
-@app.put('/entries/{id}/photo')
+@app.put('/entries/{id}/photo', dependencies=[Depends(auth)])
 async def photo(id: UUID, request:Request):
     e=load_entry(id)
     if e['type'] != 'picture':
@@ -242,11 +246,11 @@ async def photo(id: UUID, request:Request):
     save_entry(e)
     return e
 
-@app.get('/health-export/pending')
+@app.get('/health-export/pending', dependencies=[Depends(auth)])
 async def pending():
     return [e for e in await entries(limit=1000) if e['status']=='processed' and e['health_status']=='pending' and e.get('source',{}).get('provider')!='BLS' and e['nutrients']]
 
-@app.post('/health-export/{id}/claim')
+@app.post('/health-export/{id}/claim', dependencies=[Depends(auth)])
 async def claim(id:UUID):
     # Atomic reservation: never automatically retry a possibly partially written Health batch.
     with db() as c:
@@ -265,7 +269,7 @@ class Ack(BaseModel):
     export_token: str
     success: bool
 
-@app.post('/health-export/{id}/ack')
+@app.post('/health-export/{id}/ack', dependencies=[Depends(auth)])
 async def ack(id:UUID, body:Ack):
     e=load_entry(id)
     if e.get('export_token')!=body.export_token:
@@ -275,3 +279,10 @@ async def ack(id:UUID, body:Ack):
     e['health_status']='synced' if body.success else 'needs_review'
     save_entry(e)
     return e
+
+
+@app.get("/", include_in_schema=False)
+async def dashboard():
+    return HTMLResponse((Path(__file__).parent / "static" / "index.html").read_text())
+
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
