@@ -63,7 +63,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.2.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.2.1', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -335,3 +335,10 @@ async def password_logout(request: Request, response: Response):
         c.execute('DELETE FROM sessions WHERE token=?', (login_auth.token_hash(token),))
     response.delete_cookie(login_auth.COOKIE, path='/', secure=login_auth.SECURE, httponly=True, samesite='strict')
     return {'authenticated': False}
+
+
+@app.middleware("http")
+async def prevent_stale_dashboard(request: Request, call_next):
+    response = await call_next(request)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
