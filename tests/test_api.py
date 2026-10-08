@@ -71,4 +71,43 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json(),[])
         self.assertEqual((await self.client.get('/entries',params={'start':'2026-10-04T00:00:00'})).status_code,422)
 
+    async def test_password_session_logout_and_csrf(self):
+        from app import authentication as a
+        old=a.PASSWORD_HASH
+        a.PASSWORD_HASH=a.encode_password('a long test password')
+        try:
+            self.client.headers.pop('Authorization')
+            self.assertEqual((await self.client.get('/health')).status_code,401)
+            self.assertEqual((await self.client.post('/auth/login',json={'password':'a long test password'})).status_code,403)
+            headers={'Origin':'http://test'}
+            self.assertEqual((await self.client.post('/auth/login',json={'password':'wrong'},headers=headers)).status_code,401)
+            response=await self.client.post('/auth/login',json={'password':'a long test password'},headers=headers)
+            self.assertEqual(response.status_code,200)
+            self.assertIn('HttpOnly',response.headers['set-cookie'])
+            self.assertIn('Max-Age=2592000',response.headers['set-cookie'])
+            self.assertEqual((await self.client.get('/health')).status_code,200)
+            self.assertEqual((await self.client.post('/entries',json=self.payload(),headers={'Origin':'http://evil'})).status_code,403)
+            self.assertEqual((await self.client.post('/entries',json=self.payload(),headers=headers)).status_code,201)
+            with main.db() as c: c.execute('UPDATE sessions SET expires=0')
+            self.assertEqual((await self.client.get('/health')).status_code,401)
+            await self.client.post('/auth/login',json={'password':'a long test password'},headers=headers)
+            self.assertEqual((await self.client.post('/auth/logout',headers=headers)).status_code,200)
+            self.assertEqual((await self.client.get('/health')).status_code,401)
+        finally: a.PASSWORD_HASH=old
+
+    async def test_password_change_and_rate_limit(self):
+        from app import authentication as a
+        old=a.PASSWORD_HASH
+        a.PASSWORD_HASH=a.encode_password('a long test password')
+        try:
+            self.client.headers.pop('Authorization')
+            headers={'Origin':'http://test'}
+            await self.client.post('/auth/login',json={'password':'a long test password'},headers=headers)
+            a.PASSWORD_HASH=a.encode_password('a different password')
+            self.assertEqual((await self.client.get('/health')).status_code,401)
+            for _ in range(10):
+                self.assertEqual((await self.client.post('/auth/login',json={'password':'wrong'},headers=headers)).status_code,401)
+            self.assertEqual((await self.client.post('/auth/login',json={'password':'wrong'},headers=headers)).status_code,429)
+        finally: a.PASSWORD_HASH=old
+
 if __name__=='__main__': unittest.main()

@@ -111,3 +111,20 @@ docker compose logs --tail=50
 ```
 
 Einträge bleiben im unverändert eingebundenen `data`-Ordner. Diese Update-Anleitung setzt voraus, dass nur der Port in compose.yaml lokal geändert wurde. Weitere eigene Änderungen vor dem Restore sichern.
+
+## Version 1.2.0: Passwort, PWA und Server-Updates
+
+Einmalig nach dem Pull:
+
+```bash
+python3 scripts/set-password.py
+bash scripts/update.sh
+```
+
+Das Passwort wird interaktiv eingegeben und nur als gesalzener scrypt-Hash in `.env` gespeichert. Bestehenden API-Key behalten: Kurzbefehle können ihn weiterhin verwenden. Das Dashboard verwendet jetzt Passwort und eine serverseitige Sitzung mit HttpOnly/SameSite-Cookie (30 Tage). Abmelden widerruft die Sitzung; Passwortwechsel mit anschließendem Container-Neustart widerruft alle alten Sitzungen. Apple Passwords kann das Passwort automatisch ausfüllen; die konkrete Anzeige hängt von iOS und der URL ab.
+
+`FRISS_COOKIE_SECURE=false` ist für die bestehende HTTP-Adresse im vertrauenswürdigen VPN/LAN. Bei HTTPS auf `true` setzen. Ohne VPN/TLS wird ein Passwort über HTTP unverschlüsselt übertragen. Keine Internet-Portfreigabe. Keine Authentifizierungsdaten werden im Service-Worker oder Offline-Cache gespeichert; Offline-Erfassung ist noch nicht implementiert.
+
+Spätere Updates: `bash scripts/update.sh`. Es prüft Branch und lokale Änderungen, erstellt eine konsistente SQLite-Sicherung unter `data/backups/` und sichert `.env` sowie die bisherige Commit-ID unter `~/.local/share/friss-backups/`. Danach Fast-forward-Pull, Docker-Build und Startprüfung. Ein Build-Fehler lässt den bisherigen Container laufen. Backups der Fotos/Originale separat einrichten; das Skript sichert nicht den gesamten Datenordner. Bei einem Fork muss dessen `server`-Branch vor dem Update mit dem Original synchronisiert werden.
+
+Das Icon ist als `app/static/icon-192.png` und `icon-512.png` enthalten, verbunden über Manifest und apple-touch-icon. Eigene quadratische PNG-Dateien mit diesen Größen können sie ersetzen. Nach einem Icon-Wechsel auf dem iPhone gegebenenfalls die Home-Screen-Verknüpfung entfernen (keine Serverdaten werden gelöscht) und in Safari über Teilen → Zum Home-Bildschirm hinzufügen neu anlegen. Safari und installierte Web-App können getrennte Login-Sitzungen haben. HTTPS ermöglicht die vollständigen PWA-Funktionen.

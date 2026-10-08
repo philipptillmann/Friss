@@ -12,7 +12,10 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from . import authentication as login_auth
+import time
+import secrets
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -32,13 +35,15 @@ def normalize(s):
 
 @asynccontextmanager
 async def lifespan(app):
-    if len(KEY) < 32:
+    if len(KEY) < 32 and not login_auth.PASSWORD_HASH:
         raise RuntimeError('FRISS_API_KEY must contain at least 32 characters')
     DATA.mkdir(parents=True, exist_ok=True)
     (DATA / 'originals').mkdir(exist_ok=True)
     with db() as c:
         c.executescript('''
         PRAGMA journal_mode=WAL;
+        CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, expires REAL NOT NULL, password_version TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS login_attempts(client TEXT PRIMARY KEY, failures INTEGER NOT NULL, window REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS foods(code TEXT PRIMARY KEY, payload TEXT NOT NULL, search TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
         ''')
@@ -49,11 +54,16 @@ async def lifespan(app):
 
 bearer = HTTPBearer(auto_error=False)
 
-async def auth(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
-    if not KEY or credentials is None or not hmac.compare_digest(credentials.credentials, KEY):
-        raise HTTPException(401, 'Invalid API key')
+async def auth(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    if KEY and credentials and hmac.compare_digest(credentials.credentials, KEY):
+        return
+    if login_auth.session_valid(request, db):
+        if request.method not in ['GET', 'HEAD', 'OPTIONS']:
+            login_auth.same_origin(request)
+        return
+    raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.1.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.2.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -286,3 +296,42 @@ async def dashboard():
     return HTMLResponse((Path(__file__).parent / "static" / "index.html").read_text())
 
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
+
+class Login(BaseModel):
+    password: str = Field(min_length=1, max_length=1024)
+
+@app.post('/auth/login')
+async def password_login(body: Login, request: Request, response: Response):
+    login_auth.same_origin(request)
+    if not login_auth.PASSWORD_HASH:
+        raise HTTPException(503, 'Set a password on the server first')
+    client = request.client.host if request.client else 'unknown'
+    now = time.time()
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row = c.execute('SELECT * FROM login_attempts WHERE client=?', (client,)).fetchone()
+        failures = row['failures'] if row and row['window'] > now - 900 else 0
+        window = row['window'] if failures else now
+        if failures >= 10:
+            raise HTTPException(429, 'Too many attempts; wait 15 minutes')
+        c.execute('INSERT OR REPLACE INTO login_attempts VALUES(?,?,?)', (client, failures+1, window))
+    if not login_auth.verify_password(body.password):
+        raise HTTPException(401, 'Incorrect password')
+    token = secrets.token_urlsafe(32)
+    with db() as c:
+        c.execute('DELETE FROM login_attempts WHERE client=?', (client,))
+        c.execute('DELETE FROM sessions WHERE expires<?', (now,))
+        c.execute('INSERT INTO sessions VALUES(?,?,?)', (login_auth.token_hash(token), now+login_auth.LIFETIME, hashlib.sha256(login_auth.PASSWORD_HASH.encode()).hexdigest()))
+    response.set_cookie(login_auth.COOKIE, token, max_age=login_auth.LIFETIME, httponly=True, secure=login_auth.SECURE, samesite='strict', path='/')
+    response.headers['Cache-Control'] = 'no-store'
+    return {'authenticated': True}
+
+@app.post('/auth/logout')
+async def password_logout(request: Request, response: Response):
+    login_auth.same_origin(request)
+    token = request.cookies.get(login_auth.COOKIE, '')
+    with db() as c:
+        c.execute('DELETE FROM sessions WHERE token=?', (login_auth.token_hash(token),))
+    response.delete_cookie(login_auth.COOKIE, path='/', secure=login_auth.SECURE, httponly=True, samesite='strict')
+    return {'authenticated': False}
