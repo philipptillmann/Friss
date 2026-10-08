@@ -15,6 +15,8 @@ git rev-parse HEAD > "$backup_dir/commit"
 if docker compose ps --status running --services | grep -q '^api$'; then
   docker compose exec -T api python -c 'import sqlite3; from pathlib import Path; from datetime import datetime, timezone; p=Path("/data/backups"); p.mkdir(exist_ok=True); source=sqlite3.connect("/data/friss.sqlite3"); target=sqlite3.connect(p / (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")+".sqlite3")); source.backup(target); target.close(); source.close()'
 fi
+# Restrictive umask above protects backups, but Git checkout needs readable code.
+umask 022
 git fetch origin server
 git merge --ff-only origin/server
 docker compose build api
@@ -27,6 +29,7 @@ for attempt in {1..30}; do
   fi
   sleep 2
 done
-echo 'Startup check failed. Inspect docker compose logs --tail=100.'
+echo 'Startup check failed. Recent logs:'
+docker compose logs --tail=60 api || true
 echo "Previous commit: $(cat "$backup_dir/commit"). Environment backup: $backup_dir/env"
 exit 1
