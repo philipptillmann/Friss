@@ -142,3 +142,13 @@ API: `POST /recipes`, `GET /recipes`, `GET /recipes/{id}`, `PUT /recipes/{id}`. 
 ## Navigation und Schnellwahl (1.4.0)
 
 Drei Seiten: Übersicht mit Tageswerten und Schnellwahl, Mahlzeiten mit normaler Erfassung und Rezept-Verzehr, Rezepte mit Bearbeitung und Zutaten-Erfassung. Die Navigation unterstützt Zurück/Vorwärts über URL-Fragmente. Schnellwahl erfasst 250 ml Wasser oder 200 ml Kaffee mit vorbelegten 80 mg Koffein zum aktuellen Zeitpunkt, unabhängig vom gewählten Tag. Die Koffeinmenge ist eine Schätzung, keine Messung. Bei Übertragungsfehlern verwendet erneutes Tippen dieselbe Eintrags-ID. Einstellungen und konfigurierbare Schnellwahl folgen später.
+
+## BAC-Modellrechner (1.5.0)
+
+Menü Alkohol: mehrere Getränke mit Zeitpunkt in Stunden seit Modellbeginn, reinem Alkohol in g oder ml/% vol und individuellem Aufnahmefaktor kₐ (1/h). Globale Werte: Körpergewicht (kg), Verteilungsfaktor r, Abbau β (% BAC/h) und Zeitfenster bis 72 h. „Beispiel laden“ übernimmt die Parameter aus der Modellübersicht. Danach Berechnen. SVG-Kurven zeigen alle Getränke und nur das chronologisch erste Getränk. Slider oder Tippen auf die Grafik zeigt Zeit und Modell-BAC in % und ‰. Das Maximum wird aus einem Raster mit höchstens einer Minute Abstand innerhalb des gewählten Zeitraums ermittelt.
+
+Modell exakt nach vorgelegter Gleichung, mit Einheitenkorrektur: `BAC_percent(t)=max(0, sum(0.1*A_g/(mass_kg*r)*(1-exp(-ka*(t-ti)))) - beta_percent_per_hour*t)`, jeweils nur Getränke mit `t>=ti` einbeziehen; die äußere Nullbegrenzung gilt für die gesamte Differenz. 0,1 % entspricht 1 ‰. Ethanol aus Volumen: `ml*ABV/100*0.789 g/ml`. Anfangswert 0; kein expliziter Trinkzeitraum, keine Kochverluste oder separate Mahlzeiten-/Medikamentenparameter. Die Parameter r und ka müssen direkt angegeben werden.
+
+Die Gleichung zieht Abbau seit Modellbeginn auch bei zwischenzeitlichem Nullwert ab: dadurch mögliche Unterschätzung späterer Getränke. Die illustrative Referenzgrafik ist nicht numerisch konsistent mit den abgebildeten Parametern und der Gleichung. Die App reproduziert die Gleichung, nicht die gezeichneten Kurven. Illustrative Schätzung, kein Messwert und keine Grundlage für Fahrentscheidungen.
+
+Rechnung lokal im Browser, keine automatische Speicherung oder Tagebuch-Buchung; Tab schließen oder Abmelden verwirft Eingaben. Modelltests: `node tests/test_bac.cjs`. Browser-/iPhone-Test noch auf dem Zielgerät erforderlich.
