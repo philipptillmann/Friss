@@ -138,3 +138,7 @@ Verzehr buchen als Portionen (1 von z.B. 4 Portionen = 1/4 des Rezepts), als Bru
 Jeder gebuchte Verzehr enthält einen Rezept-Snapshot. Spätere Änderungen an Rezeptname, Portionen, Gewicht oder Zutaten verändern keine alten Tagebucheinträge. Wiederholte Übertragung mit derselben UUID erzeugt keinen doppelten Verzehr.
 
 API: `POST /recipes`, `GET /recipes`, `GET /recipes/{id}`, `PUT /recipes/{id}`. Zutaten sind reguläre `POST /entries` mit zusätzlichem `recipe_id`; Foto-Upload und Resolve verwenden die bestehenden Endpunkte. `POST /recipes/{id}/intake` erwartet `id`, Zeitzonen-`timestamp`, `unit` (`portion`, `fraction`, `g`) und `amount`. Rezepte und Zutaten liegen in SQLite und sind damit in der Update-Sicherung enthalten.
+
+## Navigation und Schnellwahl (1.4.0)
+
+Drei Seiten: Übersicht mit Tageswerten und Schnellwahl, Mahlzeiten mit normaler Erfassung und Rezept-Verzehr, Rezepte mit Bearbeitung und Zutaten-Erfassung. Die Navigation unterstützt Zurück/Vorwärts über URL-Fragmente. Schnellwahl erfasst 250 ml Wasser oder 200 ml Kaffee mit vorbelegten 80 mg Koffein zum aktuellen Zeitpunkt, unabhängig vom gewählten Tag. Die Koffeinmenge ist eine Schätzung, keine Messung. Bei Übertragungsfehlern verwendet erneutes Tippen dieselbe Eintrags-ID. Einstellungen und konfigurierbare Schnellwahl folgen später.
