@@ -45,6 +45,8 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, expires REAL NOT NULL, password_version TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS login_attempts(client TEXT PRIMARY KEY, failures INTEGER NOT NULL, window REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS foods(code TEXT PRIMARY KEY, payload TEXT NOT NULL, search TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS preferences(id INTEGER PRIMARY KEY, payload TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS button_images(id TEXT PRIMARY KEY, content BLOB NOT NULL);
         CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
         ''')
@@ -64,7 +66,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.5.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.6.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -452,3 +454,7 @@ async def recipe_intake(id:UUID, body:RecipeIntake):
         (DATA/'originals'/f"{e['id']}.json").write_text(json.dumps(original))
         c.execute('INSERT INTO entries VALUES(?,?,?)',(e['id'],fingerprint,json.dumps(e)))
     return e
+
+
+from . import home
+home.install(app, db, auth, Entry, create)
