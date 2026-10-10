@@ -45,6 +45,7 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, expires REAL NOT NULL, password_version TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS login_attempts(client TEXT PRIMARY KEY, failures INTEGER NOT NULL, window REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS foods(code TEXT PRIMARY KEY, payload TEXT NOT NULL, search TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
         ''')
         for path in sorted((DATA / 'bls').glob('*.json')):
@@ -63,7 +64,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.2.2', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.3.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -83,6 +84,7 @@ class Entry(BaseModel):
     barcode: str | None = Field(default=None, pattern=r'^\d{8,14}$')
     bls_code: str | None = None
     filename: str | None = None
+    recipe_id: UUID | None = None
     drink: Literal['water','coffee','alcohol'] | None = None
     caffeine_mg: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     alcohol_abv: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
@@ -190,6 +192,8 @@ async def foods(q: str = Query(min_length=1,max_length=200), lang: Literal['de',
 
 @app.post('/entries', status_code=201, dependencies=[Depends(auth)])
 async def create(entry: Entry):
+    if entry.recipe_id:
+        load_recipe(entry.recipe_id)
     payload=entry.model_dump(mode='json')
     fingerprint=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
     e={**payload,'status':'unprocessed','health_status':'pending','revision':1}
@@ -213,7 +217,7 @@ async def entries(status: str | None=None, limit:int=Query(default=100,ge=1,le=1
     result=[json.loads(r['payload']) for r in rows]
     if any(t is not None and t.utcoffset() is None for t in (start,end)):
         raise HTTPException(422, 'Date filters require timezone')
-    return [e for e in result if (status is None or e['status']==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
+    return [e for e in result if not e.get('recipe_id') and (status is None or e['status']==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
 
 @app.get('/entries/{id}', dependencies=[Depends(auth)])
 async def get_entry(id: UUID):
@@ -258,7 +262,7 @@ async def photo(id: UUID, request:Request):
 
 @app.get('/health-export/pending', dependencies=[Depends(auth)])
 async def pending():
-    return [e for e in await entries(limit=1000) if e['status']=='processed' and e['health_status']=='pending' and e.get('source',{}).get('provider')!='BLS' and e['nutrients']]
+    return [e for e in await entries(limit=1000) if not e.get('recipe_id') and e['status']=='processed' and e['health_status']=='pending' and e.get('source',{}).get('provider')!='BLS' and e['nutrients']]
 
 @app.post('/health-export/{id}/claim', dependencies=[Depends(auth)])
 async def claim(id:UUID):
@@ -269,7 +273,7 @@ async def claim(id:UUID):
         if not row:
             raise HTTPException(404,'Entry not found')
         e=json.loads(row['payload'])
-        if e['status']!='processed' or e['health_status']!='pending' or e.get('source',{}).get('provider')=='BLS' or not e['nutrients']:
+        if e.get('recipe_id') or e['status']!='processed' or e['health_status']!='pending' or e.get('source',{}).get('provider')=='BLS' or not e['nutrients']:
             raise HTTPException(409,'Entry not exportable')
         e.update(health_status='claimed', export_token=str(uuid4()))
         c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
@@ -342,3 +346,109 @@ async def prevent_stale_dashboard(request: Request, call_next):
     response = await call_next(request)
     response.headers['Cache-Control'] = 'no-store'
     return response
+
+
+class Recipe(BaseModel):
+    id: UUID
+    name: str = Field(min_length=1, max_length=200)
+    servings: float = Field(gt=0, allow_inf_nan=False)
+    finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    notes: str = Field(default='', max_length=10000)
+
+class RecipeEdit(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    servings: float = Field(gt=0, allow_inf_nan=False)
+    finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    notes: str = Field(default='', max_length=10000)
+
+def load_recipe(id):
+    with db() as c:
+        row=c.execute('SELECT payload FROM recipes WHERE id=?',(str(id),)).fetchone()
+    if not row: raise HTTPException(404, 'Recipe not found')
+    return json.loads(row['payload'])
+
+def recipe_details(recipe):
+    with db() as c:
+        ingredients=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
+    ingredients=[e for e in ingredients if e.get('recipe_id')==recipe['id']]
+    ready=bool(ingredients) and all(e['status']=='processed' for e in ingredients)
+    totals={}
+    # A nutrient absent from any ingredient is unknown for the entire recipe.
+    keys=set.intersection(*(set(e.get('nutrients',{})) for e in ingredients)) if ingredients else set()
+    mass={'g':1,'mg':.001,'mcg':.000001}
+    for key in keys:
+        values=[e['nutrients'][key] for e in ingredients]
+        unit=values[0]['unit']
+        if all(v['unit']==unit for v in values):
+            value=sum(v['value'] for v in values)
+        elif unit in mass and all(v['unit'] in mass for v in values):
+            value=sum(v['value']*mass[v['unit']]/mass[unit] for v in values)
+        else: continue
+        totals[key]={'value':value,'unit':unit}
+    blocked=any(e.get('source',{}).get('provider')=='BLS' for e in ingredients)
+    return {**recipe,'ingredients':ingredients,'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
+
+@app.post('/recipes', status_code=201, dependencies=[Depends(auth)])
+async def create_recipe(body: Recipe):
+    r=body.model_dump(mode='json')
+    with db() as c:
+        old=c.execute('SELECT payload FROM recipes WHERE id=?',(r['id'],)).fetchone()
+        if old:
+            if json.loads(old['payload'])!=r: raise HTTPException(409,'Recipe ID already used')
+        else: c.execute('INSERT INTO recipes VALUES(?,?)',(r['id'],json.dumps(r)))
+    return recipe_details(r)
+
+@app.get('/recipes', dependencies=[Depends(auth)])
+async def recipes():
+    with db() as c: rows=c.execute('SELECT payload FROM recipes ORDER BY rowid DESC').fetchall()
+    return [recipe_details(json.loads(r['payload'])) for r in rows]
+
+@app.get('/recipes/{id}', dependencies=[Depends(auth)])
+async def get_recipe(id: UUID):
+    return recipe_details(load_recipe(id))
+
+@app.put('/recipes/{id}', dependencies=[Depends(auth)])
+async def edit_recipe(id: UUID, body: RecipeEdit):
+    load_recipe(id)
+    r={'id':str(id),**body.model_dump(mode='json')}
+    with db() as c: c.execute('UPDATE recipes SET payload=? WHERE id=?',(json.dumps(r),str(id)))
+    return recipe_details(r)
+
+class RecipeIntake(BaseModel):
+    id: UUID
+    timestamp: datetime
+    unit: Literal['portion','fraction','g']
+    amount: float = Field(gt=0, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def timezone_required(self):
+        if self.timestamp.utcoffset() is None: raise ValueError('timestamp requires timezone')
+        if self.unit=='fraction' and self.amount>1: raise ValueError('Fraction must be at most 1')
+        return self
+
+@app.post('/recipes/{id}/intake', status_code=201, dependencies=[Depends(auth)])
+async def recipe_intake(id:UUID, body:RecipeIntake):
+    original={'recipe':str(id),**body.model_dump(mode='json')}
+    fingerprint=hashlib.sha256(json.dumps(original,sort_keys=True).encode()).hexdigest()
+    with db() as c:
+        old=c.execute('SELECT fingerprint,payload FROM entries WHERE id=?',(str(body.id),)).fetchone()
+    if old:
+        if old['fingerprint']!=fingerprint: raise HTTPException(409,'ID already used')
+        return json.loads(old['payload'])
+    r=recipe_details(load_recipe(id))
+    if r['status']!='ready': raise HTTPException(409,'Resolve all ingredients and quantities first')
+    if body.unit=='g' and not r['finished_weight_g']:
+        raise HTTPException(422,'Set finished recipe weight before logging grams')
+    factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount
+    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':r,'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
+    ethanol=sum(i.get('ethanol_g',0) for i in r['ingredients'])
+    if ethanol: e['ethanol_g']=ethanol*factor
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        old=c.execute('SELECT fingerprint,payload FROM entries WHERE id=?',(e['id'],)).fetchone()
+        if old:
+            if old['fingerprint']!=fingerprint: raise HTTPException(409,'ID already used')
+            return json.loads(old['payload'])
+        (DATA/'originals'/f"{e['id']}.json").write_text(json.dumps(original))
+        c.execute('INSERT INTO entries VALUES(?,?,?)',(e['id'],fingerprint,json.dumps(e)))
+    return e
