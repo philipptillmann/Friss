@@ -70,7 +70,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.12.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.12.1', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -117,7 +117,7 @@ def save_entry(e):
     with db() as c:
         c.execute('UPDATE entries SET payload=? WHERE id=?', (json.dumps(e), e['id']))
 
-async def process(e):
+async def process(e, reuse_off=False):
     e.update(status='needs_review', reason='Food or quantity unresolved', nutrients={}, warnings=[])
     q = e.get('quantity')
     food = None
@@ -157,14 +157,17 @@ async def process(e):
             basis = 'g'
     elif e['type'] == 'barcode':
         try:
-            async with httpx.AsyncClient(timeout=12, headers={'User-Agent':'Friss/0.1 (self-hosted nutrition tracker)'}) as client:
-                response = await client.get('https://world.openfoodfacts.org/api/v2/product/'+e['barcode']+'.json', params={'fields':'product_name,nutriments'})
-                response.raise_for_status()
-                product = response.json()
-            if product.get('status') != 1:
-                e['reason']='Barcode not found'
-                return
-            food = product['product']
+            if reuse_off and e.get('source',{}).get('provider')=='Open Food Facts' and e.get('food'):
+                food=e['food']
+            else:
+                async with httpx.AsyncClient(timeout=12, headers={'User-Agent':'Friss/0.1 (self-hosted nutrition tracker)'}) as client:
+                    response = await client.get('https://world.openfoodfacts.org/api/v2/product/'+e['barcode']+'.json', params={'fields':'product_name,nutriments'})
+                    response.raise_for_status()
+                    product = response.json()
+                if product.get('status') != 1:
+                    e['reason']='Barcode not found'
+                    return
+                food = product['product']
             e['food'] = food
             e['source'] = {'provider':'Open Food Facts','code':e['barcode']}
             raw = {target:{'value':food.get('nutriments',{}).get(key+'_100g'), 'unit':unit} for key,(target,unit) in OFF_MAP.items()}
@@ -276,16 +279,42 @@ async def edit_entry_time(id: UUID, body: EntryTime):
     return e
 
 class Resolution(BaseModel):
-    bls_code: str
+    bls_code: str | None = None
     quantity: Quantity
+    timestamp: datetime | None = None
+    barcode: str | None = Field(default=None,pattern=r'^\d{8,14}$')
+    description: str | None = Field(default=None,max_length=10000)
+    caffeine_mg: float | None = Field(default=None,ge=0,allow_inf_nan=False)
+    alcohol_abv: float | None = Field(default=None,ge=0,le=100,allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def aware(self):
+        if self.timestamp is not None and self.timestamp.utcoffset() is None:
+            raise ValueError('Timezone required')
+        return self
 
 @app.post('/entries/{id}/resolve', dependencies=[Depends(auth)])
 async def resolve(id:UUID, resolution:Resolution):
     e=load_entry(id)
     if e['health_status'] != 'pending':
         raise HTTPException(409,'Export already reserved or acknowledged; Health correction required')
-    e.update(bls_code=resolution.bls_code, quantity=resolution.quantity.model_dump(), revision=e['revision']+1)
-    await process(e)
+    if e['type']=='recipe': raise HTTPException(422,'Recipe servings cannot be resolved as ingredients')
+    barcode_changed=resolution.barcode is not None and resolution.barcode!=e.get('barcode')
+    if barcode_changed:
+        e.pop('food',None);e.pop('source',None);e['bls_code']=None
+    if resolution.bls_code is not None:
+        e['bls_code']=resolution.bls_code
+    elif not barcode_changed and (e.get('food') or {}).get('bls_code'):
+        e['bls_code']=e['food']['bls_code']
+    for field in ['barcode','description','caffeine_mg','alcohol_abv']:
+        value=getattr(resolution,field)
+        if value is not None: e[field]=value
+    if resolution.timestamp is not None:
+        if datetime.fromisoformat(e['timestamp'])!=resolution.timestamp:
+            e.setdefault('original_timestamp',e['timestamp'])
+            e['timestamp']=resolution.timestamp.isoformat()
+    e.update(quantity=resolution.quantity.model_dump(), revision=e['revision']+1)
+    await process(e,reuse_off=True)
     save_entry(e)
     return e
 

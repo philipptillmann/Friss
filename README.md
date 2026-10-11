@@ -235,3 +235,7 @@ Jeder bewusst angeklickte BLS-Suchtreffer speichert eine Zuordnung von Suchbegri
 Mahlzeiten- und Rezeptzutatensuche, Favoritensuche und Schnellwahl-Suche verwenden dieselben persönlichen Zuordnungen. Deutsch und Englisch sowie verschiedene Suchbegriffe werden getrennt gelernt. Bloßes Tippen, Anzeige eines Treffers, automatisches Textauflösen oder Wiederverwenden eines Favoriten zählen nicht als Suchauswahl. Die Zuordnungen liegen lokal in SQLite, bleiben nach Neustart erhalten und sind Bestandteil der bestehenden Datenbanksicherung. Aktuell gilt die Personalisierung für den gemeinsamen Friss-Zugang.
 
 POST /food-search/selections erhält id (UUID pro Auswahl), query, lang (de/en) und bls_code. Wiederholte Übertragung derselben ID zählt nur einmal. Die API prüft, dass der gewählte BLS-Treffer zur Suche gehört. Schlägt das Lernen fehl, bleibt der gewählte Lebensmittel-Treffer verwendbar und das Dashboard zeigt einen Hinweis.
+
+## Nachbearbeiten (1.12.1)
+
+Die Mengenbeschriftung heißt „Menge (g)“. Bei der ersten Erfassung darf sie weiterhin leer sein; beim Nachbearbeiten wird eine Menge benötigt. „Nachbearbeiten“ lädt das bereits bekannte Lebensmittel, Menge, ursprünglichen Zeitpunkt und vorhandene Getränkeparameter in die Erfassungsmaske. Nur noch Fehlendes ergänzen. Ohne bisherige Lebensmittelzuordnung bleibt die Suche nötig. Erkannte OFF-Produkte werden beim Ergänzen der Menge aus ihren gespeicherten Produktdaten berechnet; die ursprüngliche Erfassungsmethode, Rezeptzuordnung und Originaldatei bleiben erhalten.

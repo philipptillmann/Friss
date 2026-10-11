@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.1
+
+Mengenbeschriftung ohne „optional“, spätere Ergänzung bleibt möglich. Nachbearbeitung stellt bekannte Lebensmittel, Menge, Zeitpunkt und Getränkeparameter wieder her. Bereits erkannte OFF-Produkte werden bei Mengenergänzung aus gespeicherten Daten berechnet.
+
 ## 1.12.0
 
 Lernende BLS-Suchsortierung nach ausgewählten Treffern pro normalisiertem Suchbegriff und Sprache. Häufigkeit, letzte Auswahl und Textrelevanz bestimmen die Reihenfolge vor der Trefferbegrenzung. Auswahl aus Mahlzeiten, Rezeptzutaten, Favoriten und Schnellwahl lernt gemeinsam; Speicherung lokal in SQLite.
