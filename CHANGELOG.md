@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1
+
+Überschriftenblock unter der Navigation entfernt. Alle Menütasten bleiben ohne horizontales Scrollen sichtbar. Schnellwahlbilder füllen ihre Kacheln randlos aus; weiterhin vier Kacheln pro Reihe.
+
 ## 1.8.0
 
 Zusätzliche Wasser-, Koffein- und Alkoholmengen pro Rezept mit gemeinsamer Portion-/Gramm-Skalierung. Rezept-Schnellwahltasten inklusive aller berechneten Nährwerte. Wasserzusätze fließen in Home und Statistik ein; Rezeptalkohol in den BAC-Modellwert.

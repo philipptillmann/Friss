@@ -51,7 +51,7 @@ $('intakeAmount').oninput=()=>{intakeAttempt=null;};$('intakeTime').oninput=()=>
 
 $('mealIntakeHost').append($('intakeForm'));
 $('destination').parentElement.querySelector('label[for="destination"]').hidden=true;$('destination').hidden=true;
-function updatePageLabels(){ document.querySelector('h1[data-i="overview"]').textContent=t(currentPage); $('formTitle').textContent=editing?t('resolve'):currentPage==='recipes'?t('ingredients'):t('add');$('listTitle').textContent=currentPage==='recipes'?t('ingredients'):t('entries'); }
+function updatePageLabels(){ $('formTitle').textContent=editing?t('resolve'):currentPage==='recipes'?t('ingredients'):t('add');$('listTitle').textContent=currentPage==='recipes'?t('ingredients'):t('entries'); }
 function showPage(page){
  if(!['home','meals','recipes','alcohol','settings','statistics'].includes(page))page='home';
  if(page!==currentPage&&attempt){message(t('retry'),true);return;}
