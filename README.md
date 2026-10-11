@@ -180,3 +180,26 @@ Unter Einstellungen → Schnellwahl → Erfassung „Rezept“ wählen, Rezept u
 Wasser aus Rezeptzusätzen und expliziten Wasser-Zutaten zählt zu getrunkenem Wasser auf Home und in der Statistik. Wassergehalt aus BLS-Lebensmitteln bleibt davon getrennt. Alkohol aus Rezepten wird auch für den BAC-Modellwert berücksichtigt. Bestehende BLS-Health-Sperre bleibt bestehen.
 
 API-Rezeptfelder: `added_water_ml`, `added_caffeine_mg`, `added_ethanol_g` (nichtnegative Mengen, Standard 0). Schnellwahl-Preset: `{"type":"recipe","recipe_id":"UUID","quantity":{"value":1,"unit":"portion"}}`.
+
+## Tagesziele und Tagesexport (1.9.0)
+
+Einstellungen: optionale, unabhängige Ziele für kcal, Protein, Kohlenhydrate und Fett. Home zeigt bekannte Mengen, Prozent, Rest/Überschreitung und unvollständige Summen. Keine automatisch berechneten Empfehlungen.
+
+Health-Export listet die Tage in der iPhone-Zeitzone. „Tag exportieren“ reserviert eine unveränderliche Tagesdatei. Download/Teilen allein bedeutet **nicht**, dass Health geschrieben wurde. Erst nach erfolgreichem Schreiben durch einen iPhone-Kurzbefehl bestätigen. Bei Teilfehlern/Abbruch „fehlgeschlagen / unklar“ wählen und Health manuell prüfen. Keine automatische Wiederholung. Nachträgliche Tagebuchänderungen werden gekennzeichnet; vorhandene Health-Samples werden nicht automatisch korrigiert.
+
+BLS-Tage und Rezepte mit BLS bleiben wegen der ungeprüften Quelleinheiten gesperrt. Offene Einträge und vorherige Einzel-Exporte sperren ebenfalls die Tagesreservierung. Exportiert werden bekannte Ernährungswerte mit bestätigten Einheiten; fehlende Nährstoffe werden nicht als Null ergänzt. Alkoholgramm und BAC sind keine HealthKit-Ernährungstypen und werden nicht exportiert. Tageswerte haben als Zeitpunkt 12 Uhr in der gewählten Zeitzone. Rezeptzutaten werden ausgeschlossen.
+
+### iPhone-Kurzbefehl für die Tagesdatei
+
+Ein Kurzbefehl muss erst auf dem iPhone erstellt und getestet werden; diese Version liefert keine installierbare .shortcut-Datei und kann keine Health-Berechtigung aus dem Browser erteilen.
+
+1. Einen Kurzbefehl erstellen und im Teilen-Menü für Dateien aktivieren.
+2. „Wörterbuch aus Eingabe abrufen“ auf die geteilte JSON-Datei anwenden.
+3. Den Wert `samples` abrufen und alle Elemente wiederholen.
+4. `identifier`, `value`, `unit` und `timestamp` aus dem Wiederholungselement lesen. Je identifier eine passende „Gesundheitsdaten protokollieren“-Aktion verwenden, mit expliziter Einheit und Datum. Die Aktion muss auf dem iPhone für die betreffende Kategorie verfügbar sein.
+5. Beispiele: dietaryEnergyConsumed → Nahrungsenergie (kcal), dietaryProtein → Protein (g), dietaryCarbohydrates → Kohlenhydrate (g), dietaryFatTotal → Gesamtfett (g), dietaryWater → Wasser (ml), dietaryCaffeine → Koffein (g). Andere exportierte Typen benötigen eigene Zuordnungen. Unbekannte Typen müssen den Ablauf abbrechen, nicht still übersprungen werden.
+6. Erst nach **allen** erfolgreichen Aktionen in Friss „Health-Schreiben bestätigen“. Das ist eine Nutzerbestätigung, keine automatische Prüfung der Health-Daten. Bei Fehlern Health-Bestand prüfen und Export als unklar markieren.
+
+API für eine spätere automatische Anbindung: GET /health-days?tz=Europe/Berlin, POST /health-days/prepare mit day und timezone, GET /health-days/{id}, POST /health-days/{id}/ack mit export_token und success. Authentifizierung wie bisher über Bearer-API-Key bzw. Dashboard-Sitzung. API-Key nicht in geteilten Dateien speichern.
+
+Rezeptbuchungen speichern Nährwerte und Rezeptdetails zum Buchungszeitpunkt. Rezeptänderungen betreffen nur künftige Buchungen. Alte Verzehre bei Bedarf löschen und neu buchen; Health-Korrekturen separat vornehmen.

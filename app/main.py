@@ -48,6 +48,7 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS preferences(id INTEGER PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS button_images(id TEXT PRIMARY KEY, content BLOB NOT NULL);
         CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS health_days(id TEXT PRIMARY KEY, day TEXT NOT NULL, timezone TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(day,timezone));
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
         ''')
         for path in sorted((DATA / 'bls').glob('*.json')):
@@ -66,7 +67,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.8.3', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.9.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -297,11 +298,15 @@ async def claim(id:UUID):
         if not row:
             raise HTTPException(404,'Entry not found')
         e=json.loads(row['payload'])
-        if e.get('recipe_id') or e['status']!='processed' or e['health_status']!='pending' or e.get('source',{}).get('provider')=='BLS' or not e['nutrients']:
+        if e.get('recipe_id') or day_export_reserved(e['id']) or e['status']!='processed' or e['health_status']!='pending' or e.get('source',{}).get('provider')=='BLS' or not e['nutrients']:
             raise HTTPException(409,'Entry not exportable')
         e.update(health_status='claimed', export_token=str(uuid4()))
         c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
     return e
+
+def day_export_reserved(id):
+    with db() as c:
+        return any(id in json.loads(r['payload'])['entry_ids'] for r in c.execute('SELECT payload FROM health_days'))
 
 class Ack(BaseModel):
     export_token: str
@@ -310,6 +315,8 @@ class Ack(BaseModel):
 @app.post('/health-export/{id}/ack', dependencies=[Depends(auth)])
 async def ack(id:UUID, body:Ack):
     e=load_entry(id)
+    if day_export_reserved(str(id)):
+        raise HTTPException(409,'Acknowledge the entire day export instead')
     if e.get('export_token')!=body.export_token:
         raise HTTPException(409,'Invalid export token')
     if e['health_status'] in ['synced','needs_review']:
@@ -500,3 +507,6 @@ home.install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_int
 
 from . import statistics
 statistics.install(app, db, auth)
+
+from . import health_days
+health_days.install(app, db, auth)

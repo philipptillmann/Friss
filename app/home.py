@@ -33,10 +33,17 @@ class BACProfile(BaseModel):
     elimination_percent_per_hour: float = Field(ge=0, le=1, allow_inf_nan=False)
     absorption_per_hour: float = Field(ge=.001, le=100, allow_inf_nan=False)
 
+class Goals(BaseModel):
+    energy_kcal: float | None = Field(default=None, gt=0, le=50000, allow_inf_nan=False)
+    protein_g: float | None = Field(default=None, gt=0, le=5000, allow_inf_nan=False)
+    carbohydrates_g: float | None = Field(default=None, gt=0, le=5000, allow_inf_nan=False)
+    fat_g: float | None = Field(default=None, gt=0, le=5000, allow_inf_nan=False)
+
 class Preferences(BaseModel):
     version: int = Field(ge=0)
     buttons: list[QuickButton]
     bac: BACProfile | None = None
+    goals: Goals | None = None
 
     @model_validator(mode='after')
     def unique_ids(self):
@@ -124,7 +131,7 @@ def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_inta
             row=c.execute('SELECT payload FROM preferences WHERE id=1').fetchone()
             value=json.loads(row['payload']) if row else json.loads(json.dumps(DEFAULT))
             images={r['id'] for r in c.execute('SELECT id FROM button_images')}
-        return {**value,'buttons':[{**b,'has_image':b['id'] in images} for b in value['buttons']]}
+        return {'goals':None,**value,'buttons':[{**b,'has_image':b['id'] in images} for b in value['buttons']]}
 
     @app.get('/settings',dependencies=[Depends(auth)])
     async def get_settings(): return settings()
