@@ -170,3 +170,13 @@ Neue Seite „Statistik“: 7, 30 oder 90 Tage bzw. frei wählbarer Zeitraum bis
 Offene Einträge und unvollständige Nährstoffsummen sind gekennzeichnet. BLS-Makrowerte beruhen weiterhin auf den bisherigen vorläufigen Einheiten-/100-g-Annahmen. Rezeptzutaten sind ausgeschlossen; gegessene Rezeptportionen sind enthalten. Kalendergrenzen einschließlich Sommer-/Winterzeit verwenden die IANA-Zeitzone des Browsers.
 
 API: `GET /statistics?start=2026-10-01&end=2026-10-10&tz=Europe/Berlin` (Start und Ende inklusive). Vollständige Auswertung ohne 1.000-Einträge-Limit, geschützt durch dieselbe Anmeldung. Keine neue Datenhaltung; bestehende Einträge werden ausgewertet.
+
+## Rezept-Zusätze und Rezept-Schnellwahl (1.8.0)
+
+Auf der Rezeptseite zusätzliche Mengen für das **ganze Rezept** erfassen: Wasser in ml, Koffein in mg und reiner Alkohol in g. Diese werden zu bereits erfassten Zutatenmengen addiert, nicht als deren Ersatz verstanden. Beispiel Cappuccino: Espresso und Milch als Zutaten, fehlende Koffeinmenge im Zusatzfeld. Bereits erfasstes Koffein nicht nochmals ergänzen. Jede Portion, jeder Bruchteil und jede Grammmenge skaliert Zusätze und Nährwerte mit demselben Faktor. Fertiges Gesamtgewicht bei Wasserzugabe gegebenenfalls selbst anpassen. Zusätzliche Alkoholangaben ergänzen keine automatisch geschätzten Getränkekalorien.
+
+Unter Einstellungen → Schnellwahl → Erfassung „Rezept“ wählen, Rezept und Menge auswählen (Portionen, Anteil 0–1 oder Gramm). Für Gramm ist das fertige Rezeptgewicht erforderlich. Ein Antippen auf Home bucht den Rezept-Verzehr mit allen berechneten Nährwerten, Koffein, Wasser und Alkohol. Derselbe Übertragungsversuch erzeugt keinen zweiten Eintrag; gespeicherte Rezept-Snapshots schützen frühere Mahlzeiten vor späteren Änderungen. Ungeklärte Zutaten blockieren die Buchung weiterhin.
+
+Wasser aus Rezeptzusätzen und expliziten Wasser-Zutaten zählt zu getrunkenem Wasser auf Home und in der Statistik. Wassergehalt aus BLS-Lebensmitteln bleibt davon getrennt. Alkohol aus Rezepten wird auch für den BAC-Modellwert berücksichtigt. Bestehende BLS-Health-Sperre bleibt bestehen.
+
+API-Rezeptfelder: `added_water_ml`, `added_caffeine_mg`, `added_ethanol_g` (nichtnegative Mengen, Standard 0). Schnellwahl-Preset: `{"type":"recipe","recipe_id":"UUID","quantity":{"value":1,"unit":"portion"}}`.

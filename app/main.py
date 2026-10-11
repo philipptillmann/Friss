@@ -66,7 +66,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.7.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.8.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -356,12 +356,18 @@ class Recipe(BaseModel):
     servings: float = Field(gt=0, allow_inf_nan=False)
     finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     notes: str = Field(default='', max_length=10000)
+    added_water_ml: float = Field(default=0, ge=0, allow_inf_nan=False)
+    added_caffeine_mg: float = Field(default=0, ge=0, allow_inf_nan=False)
+    added_ethanol_g: float = Field(default=0, ge=0, allow_inf_nan=False)
 
 class RecipeEdit(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     servings: float = Field(gt=0, allow_inf_nan=False)
     finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     notes: str = Field(default='', max_length=10000)
+    added_water_ml: float = Field(default=0, ge=0, allow_inf_nan=False)
+    added_caffeine_mg: float = Field(default=0, ge=0, allow_inf_nan=False)
+    added_ethanol_g: float = Field(default=0, ge=0, allow_inf_nan=False)
 
 def load_recipe(id):
     with db() as c:
@@ -373,7 +379,8 @@ def recipe_details(recipe):
     with db() as c:
         ingredients=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
     ingredients=[e for e in ingredients if e.get('recipe_id')==recipe['id']]
-    ready=bool(ingredients) and all(e['status']=='processed' for e in ingredients)
+    additions=any(recipe.get(k,0)>0 for k in ['added_water_ml','added_caffeine_mg','added_ethanol_g'])
+    ready=(bool(ingredients) or additions) and all(e['status']=='processed' for e in ingredients)
     totals={}
     # A nutrient absent from any ingredient is unknown for the entire recipe.
     keys=set.intersection(*(set(e.get('nutrients',{})) for e in ingredients)) if ingredients else set()
@@ -387,8 +394,17 @@ def recipe_details(recipe):
             value=sum(v['value']*mass[v['unit']]/mass[unit] for v in values)
         else: continue
         totals[key]={'value':value,'unit':unit}
+    caffeine=recipe.get('added_caffeine_mg',0)
+    water=recipe.get('added_water_ml',0)
+    ethanol=recipe.get('added_ethanol_g',0)+sum(i.get('ethanol_g',0) for i in ingredients)
+    for ingredient in ingredients:
+        n=ingredient.get('nutrients',{}).get('dietaryCaffeine')
+        if n and n['unit'] in mass: caffeine+=n['value']*mass[n['unit']]*1000
+        if ingredient.get('drink')=='water': water+=ingredient.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
+    if caffeine: totals['dietaryCaffeine']={'value':caffeine,'unit':'mg'}
+    if water: totals['dietaryWater']={'value':water,'unit':'ml'}
     blocked=any(e.get('source',{}).get('provider')=='BLS' for e in ingredients)
-    return {**recipe,'ingredients':ingredients,'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
+    return {**recipe,'ethanol_g':ethanol,'drinking_water_ml':water,'ingredients':ingredients,'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
 
 @app.post('/recipes', status_code=201, dependencies=[Depends(auth)])
 async def create_recipe(body: Recipe):
@@ -443,7 +459,8 @@ async def recipe_intake(id:UUID, body:RecipeIntake):
         raise HTTPException(422,'Set finished recipe weight before logging grams')
     factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount
     e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':r,'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
-    ethanol=sum(i.get('ethanol_g',0) for i in r['ingredients'])
+    ethanol=r['ethanol_g']
+    if r['drinking_water_ml']: e['drinking_water_ml']=r['drinking_water_ml']*factor
     if ethanol: e['ethanol_g']=ethanol*factor
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
@@ -457,7 +474,7 @@ async def recipe_intake(id:UUID, body:RecipeIntake):
 
 
 from . import home
-home.install(app, db, auth, Entry, create)
+home.install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_intake)
 
 from . import statistics
 statistics.install(app, db, auth)

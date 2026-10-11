@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field, model_validator, ValidationError
 from typing import Literal
 
 class Preset(BaseModel):
-    type: Literal['drink','item','text','barcode']
+    type: Literal['drink','item','text','barcode','recipe']
     quantity: dict
+    recipe_id: UUID | None = None
     drink: Literal['water','coffee','alcohol'] | None = None
     bls_code: str | None = None
     description: str | None = Field(default=None, max_length=10000)
@@ -97,6 +98,7 @@ def summarize(day_entries):
         if e['status']!='processed': continue
         n=e.get('nutrients',{}).get('dietaryCaffeine')
         if n and n['unit'] in MASS: caffeine+=n['value']*MASS[n['unit']]*1000
+        water+=e.get('drinking_water_ml',0)
         if e.get('drink')=='water': water+=e.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
     return {'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
 
@@ -116,7 +118,7 @@ def current_bac(entries,profile,now):
     absorbed=sum(.1*g/(profile['mass_kg']*profile['distribution'])*(-math.expm1(-profile['absorption_per_hour']*(now-t).total_seconds()/3600)) for t,g in drinks)
     return {'percent':max(0,absorbed-profile['elimination_percent_per_hour']*elapsed),'reason':'model_estimate','origin':origin.isoformat(),'as_of':now.isoformat()}
 
-def install(app, db, auth, Entry, create):
+def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_intake):
     def settings():
         with db() as c:
             row=c.execute('SELECT payload FROM preferences WHERE id=1').fetchone()
@@ -130,6 +132,16 @@ def install(app, db, auth, Entry, create):
     @app.put('/settings',dependencies=[Depends(auth)])
     async def put_settings(body: Preferences):
         for b in body.buttons:
+            if b.entry.type=='recipe':
+                if not b.entry.recipe_id: raise HTTPException(422,'Recipe required')
+                recipe=load_recipe(b.entry.recipe_id)
+                q=b.entry.quantity
+                try:
+                    RecipeIntake(id=b.id,timestamp=datetime.now(timezone.utc),amount=q.get('value'),unit=q.get('unit'))
+                except ValidationError: raise HTTPException(422,'Invalid recipe serving')
+                if q.get('unit')=='g' and not recipe.get('finished_weight_g'): raise HTTPException(422,'Recipe finished weight required for grams')
+                continue
+            if b.entry.recipe_id is not None: raise HTTPException(422,'Use recipe type to link a recipe')
             try:
                 validated=Entry(id=b.id,timestamp=datetime.now(timezone.utc),**b.entry.model_dump())
             except ValidationError:
@@ -161,6 +173,9 @@ def install(app, db, auth, Entry, create):
     @app.post('/quick-buttons/{id}/intake',dependencies=[Depends(auth)])
     async def quick_intake(id:UUID,body:QuickIntake):
         b=find_button(id)
+        if b['entry']['type']=='recipe':
+            q=b['entry']['quantity']
+            return await recipe_intake(UUID(b['entry']['recipe_id']),RecipeIntake(id=body.id,timestamp=body.timestamp,unit=q['unit'],amount=q['value']))
         return await create(Entry(id=body.id,timestamp=body.timestamp,**{**b['entry'],'description':b['entry'].get('description') or b['label']}))
 
     @app.put('/quick-buttons/{id}/image',dependencies=[Depends(auth)])

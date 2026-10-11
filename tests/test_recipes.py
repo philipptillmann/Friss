@@ -58,3 +58,54 @@ class RecipeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post('/recipes',json={'id':str(uuid4()),'name':'X','servings':0})).status_code,422)
         p=self.payload(recipe_id=str(uuid4()))
         self.assertEqual((await self.client.post('/entries',json=p)).status_code,404)
+
+    async def test_additional_amounts_recipe_button_scaling_and_snapshot(self):
+        r,i=await self.setup_recipe()
+        edit={'name':'Cappuccino batch','servings':4,'finished_weight_g':600,'added_water_ml':200,'added_caffeine_mg':160,'added_ethanol_g':20}
+        response=await self.client.put('/recipes/'+r['id'],json=edit)
+        self.assertEqual(response.status_code,200)
+        settings=(await self.client.get('/settings')).json()
+        button={'id':str(uuid4()),'label':'Cappuccino','entry':{'type':'recipe','recipe_id':r['id'],'quantity':{'value':1,'unit':'portion'}}}
+        settings['buttons']=[button]
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,200)
+        intake={'id':str(uuid4()),'timestamp':'2026-10-10T12:00:00+02:00'}
+        url='/quick-buttons/'+button['id']+'/intake'
+        e=(await self.client.post(url,json=intake)).json()
+        self.assertEqual(e['type'],'recipe')
+        self.assertEqual(e['nutrients']['dietaryEnergyConsumed']['value'],150)
+        self.assertEqual(e['nutrients']['dietaryCaffeine'],{'value':40,'unit':'mg'})
+        self.assertEqual(e['nutrients']['dietaryWater'],{'value':50,'unit':'ml'})
+        self.assertEqual(e['ethanol_g'],5)
+        self.assertEqual(e['drinking_water_ml'],50)
+        for unit,amount in [('g',150),('fraction',.25)]:
+            body={'id':str(uuid4()),'timestamp':intake['timestamp'],'unit':unit,'amount':amount}
+            scaled=(await self.client.post('/recipes/'+r['id']+'/intake',json=body)).json()
+            self.assertEqual(scaled['nutrients']['dietaryCaffeine']['value'],40)
+            self.assertEqual(scaled['ethanol_g'],5)
+        await self.client.put('/recipes/'+r['id'],json={**edit,'added_caffeine_mg':320})
+        self.assertEqual((await self.client.post(url,json=intake)).json(),e)
+        self.assertEqual(e['recipe_snapshot']['added_caffeine_mg'],160)
+        from app.home import summarize
+        totals=summarize([e])
+        self.assertEqual(totals['caffeine_mg'],40)
+        self.assertEqual(totals['drinking_water_ml'],50)
+        self.assertEqual(totals['ethanol_g'],5)
+        settings=(await self.client.get('/settings')).json()
+        settings['buttons'][0]['entry']['quantity']={'value':.25,'unit':'fraction'}
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,200)
+
+    async def test_recipe_button_validation_and_addition_only_recipe(self):
+        r={'id':str(uuid4()),'name':'Water and caffeine','servings':2,'added_water_ml':500,'added_caffeine_mg':100}
+        self.assertEqual((await self.client.post('/recipes',json=r)).json()['status'],'ready')
+        settings=(await self.client.get('/settings')).json()
+        button={'id':str(uuid4()),'label':'Recipe','entry':{'type':'recipe','recipe_id':r['id'],'quantity':{'value':100,'unit':'g'}}}
+        settings['buttons']=[button]
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,422)
+        button['entry']['quantity']={'value':2,'unit':'fraction'}
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,422)
+        button['entry']['quantity']={'value':1,'unit':'portion'}
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,200)
+        response=await self.client.post('/quick-buttons/'+button['id']+'/intake',json={'id':str(uuid4()),'timestamp':'2026-10-10T12:00:00+02:00'})
+        self.assertEqual(response.json()['nutrients']['dietaryWater']['value'],250)
+        self.assertEqual(response.json()['nutrients']['dietaryCaffeine']['value'],50)
+        self.assertEqual((await self.client.post('/recipes',json={**r,'id':str(uuid4()),'added_ethanol_g':-1})).status_code,422)
