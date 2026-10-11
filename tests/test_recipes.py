@@ -38,7 +38,7 @@ class RecipeTests(unittest.IsolatedAsyncioTestCase):
         old=(await self.client.get('/entries/'+e['id'])).json()
         self.assertEqual(old['recipe_snapshot']['name'],'Test meal')
         self.assertEqual(old['nutrients']['dietaryEnergyConsumed']['value'],150)
-        self.assertEqual((await self.client.post('/health-export/'+e['id']+'/claim')).status_code,409)
+        self.assertEqual((await self.client.post('/health-export/'+e['id']+'/claim')).status_code,200)
 
     async def test_unresolved_and_finished_weight_required(self):
         r,i=await self.setup_recipe(weight=None)

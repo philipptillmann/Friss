@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from . import authentication as login_auth
+from . import bls_units
 import time
 import secrets
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -58,6 +59,7 @@ async def lifespan(app):
         for path in sorted((DATA / 'bls').glob('*.json')):
             for food in json.loads(path.read_text()).values():
                 c.execute('INSERT OR IGNORE INTO foods VALUES(?,?,?)', (food['bls_code'], json.dumps(food), normalize(food['name_de']+' '+food['name_en'])))
+        bls_units.migrate(c)
     yield
 
 bearer = HTTPBearer(auto_error=False)
@@ -71,11 +73,9 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.13.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.13.1', lifespan=lifespan)
 
-# Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
-BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
-BLS_UNITS['dietaryEnergyConsumed'] = 'kcal'
+BLS_UNITS = bls_units.UNITS
 OFF_MAP = {'energy-kcal':('dietaryEnergyConsumed','kcal'), 'carbohydrates':('dietaryCarbohydrates','g'), 'fiber':('dietaryFiber','g'), 'sugars':('dietarySugar','g'), 'fat':('dietaryFatTotal','g'), 'saturated-fat':('dietaryFatSaturated','g'), 'proteins':('dietaryProtein','g'), 'sodium':('dietarySodium','g'), 'caffeine':('dietaryCaffeine','g')}
 
 class Quantity(BaseModel):
@@ -162,9 +162,8 @@ async def process(e, reuse_off=False):
             if row:
                 food = json.loads(row['payload'])
         if food:
-            e['source'] = {'provider':'BLS', 'code':food['bls_code']}
+            e['source'] = {'provider':'BLS', 'code':food['bls_code'], 'units_version':bls_units.VERSION}
             e['food'] = food
-            e['warnings'].append('Legacy BLS basis assumed per 100 g; confirm source units before Health export')
             raw = {k: {'value':v,'unit':BLS_UNITS.get(k)} for k,v in food['nutrients'].items()}
             basis = 'g'
     elif e['type'] == 'barcode':
@@ -357,7 +356,7 @@ async def photo(id: UUID, request:Request):
 
 @app.get('/health-export/pending', dependencies=[Depends(auth)])
 async def pending():
-    return [e for e in await entries(limit=1000) if not e.get('recipe_id') and e['status']=='processed' and e['health_status']=='pending' and e.get('source',{}).get('provider')!='BLS' and e['nutrients']]
+    return [{**e,'nutrients':bls_units.exportable(e)} for e in await entries(limit=1000) if not e.get('recipe_id') and e['status']=='processed' and e['health_status']=='pending' and not bls_units.blocked(e) and bls_units.exportable(e)]
 
 @app.post('/health-export/{id}/claim', dependencies=[Depends(auth)])
 async def claim(id:UUID):
@@ -368,11 +367,11 @@ async def claim(id:UUID):
         if not row:
             raise HTTPException(404,'Entry not found')
         e=json.loads(row['payload'])
-        if e.get('recipe_id') or day_export_reserved(e['id']) or e['status']!='processed' or e['health_status']!='pending' or e.get('source',{}).get('provider')=='BLS' or not e['nutrients']:
+        if e.get('recipe_id') or day_export_reserved(e['id']) or e['status']!='processed' or e['health_status']!='pending' or bls_units.blocked(e) or not bls_units.exportable(e):
             raise HTTPException(409,'Entry not exportable')
         e.update(health_status='claimed', export_token=str(uuid4()))
         c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
-    return e
+    return {**e,'nutrients':bls_units.exportable(e)}
 
 def day_export_reserved(id):
     with db() as c:
@@ -502,7 +501,7 @@ def recipe_details(recipe):
         if ingredient.get('drink')=='water': water+=ingredient.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
     if caffeine: totals['dietaryCaffeine']={'value':caffeine,'unit':'mg'}
     if water: totals['dietaryWater']={'value':water,'unit':'ml'}
-    blocked=any(e.get('source',{}).get('provider')=='BLS' for e in ingredients)
+    blocked=any(bls_units.blocked(e) for e in ingredients)
     return {**recipe,'ethanol_g':ethanol,'drinking_water_ml':water,'ingredients':ingredients,'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
 
 @app.post('/recipes', status_code=201, dependencies=[Depends(auth)])

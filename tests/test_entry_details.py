@@ -48,7 +48,7 @@ class EntryDetailsTests(unittest.IsolatedAsyncioTestCase):
         await self.client.post('/entries',json=p)
         details=(await self.client.get('/entries/'+p['id']+'/details')).json()
         self.assertEqual(details['contributions']['dietaryEnergyConsumed'],{'value':300,'unit':'kcal'})
-        self.assertEqual(details['contributions']['dietaryVitaminB6'],{'value':12,'unit':None})
+        self.assertEqual(details['contributions']['dietaryVitaminB6'],{'value':12,'unit':'mcg'})
         self.assertEqual(details['contributions']['dietaryVitaminC']['qualifier'],'TR')
         unknown=self.payload(type='item',drink=None,bls_code='DETAIL_TEST',quantity=None)
         await self.client.post('/entries',json=unknown)

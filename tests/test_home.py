@@ -43,7 +43,8 @@ class HomeTests(unittest.IsolatedAsyncioTestCase):
     async def test_summary_provisional_units_and_unknowns(self):
         e={'type':'item','status':'processed','source':{'provider':'BLS'},'quantity':{'value':200,'unit':'g'},'food':{'bls_code':'X','nutrients':{'dietaryVitaminB6':50,'dietaryVitaminC':'TR','dietarySelenium':None}},'nutrients':{'dietaryEnergyConsumed':{'value':100,'unit':'kcal'}}}
         s=home.summarize([e]);n={v['key']:v for v in s['nutrients']}
-        self.assertEqual(n['dietaryVitaminB6']['values'],[{'value':100,'unit':None}])
+        self.assertAlmostEqual(n['dietaryVitaminB6']['values'][0]['value'],.0001)
+        self.assertEqual(n['dietaryVitaminB6']['values'][0]['unit'],'g')
         self.assertEqual(n['dietaryVitaminC']['qualifiers'],['TR'])
         self.assertEqual(n['dietarySelenium']['values'],[])
         self.assertEqual(n['dietaryEnergyConsumed']['values'][0]['value'],100)

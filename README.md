@@ -50,7 +50,9 @@ Reservierungen laufen nicht automatisch ab: Bei Abbruch zwischen Health-Schreibe
 
 ## BLS-Einheiten und Apple Health
 
-Die JSON-Datei enthält keine Einheiten und keine Bezugsgröße. Vorläufige Berechnung: pro 100 g, Makronährstoffe in g, Energie in kcal. Diese Annahmen stehen als Warnung am Eintrag. **BLS-Health-Export bleibt vollständig gesperrt**, bis die ursprüngliche Konvertierung/Spalteneinheiten geprüft sind. Mikronährstoffwerte sowie TR, null und <LOD/<LOQ bleiben im Food-Original erhalten; unbekannte Einheiten werden nicht exportiert. Nahrungswasser aus BLS wird nicht als getrunkenes Wasser gewertet.
+Die Einheiten und die Bezugsgröße pro 100 g wurden anhand der BLS-4.0-Komponentenliste und der Originaltabelle BLS_4_0_Daten_2025_DE.xlsx bestätigt. Die bestehenden JSON-Zahlen wurden laut Nutzer unverändert übernommen. `app/bls_units.py` enthält die Zuordnung: Cholesterin und die meisten Mineralstoffe in mg; Vitamin B6, Kupfer und Mangan ausdrücklich in mcg. Selenium und Koffein sind im gelieferten BLS-Komponentenkatalog nicht enthalten und erhalten keine geratene Einheit. TR, null und Nachweisgrenzen bleiben unbekannt. BLS-Nahrungswasser bleibt in g sichtbar und wird nicht als getrunkenes Wasser oder Health-Wasservolumen exportiert.
+
+Beim Start ergänzt eine idempotente Migration die Einheiten und zuvor ausgelassenen numerischen Nährstoffe aus den gespeicherten Food-Snapshots für noch nicht exportierte BLS-Einträge. Rezeptportionen erhalten fehlende Werte aus ihren eingefrorenen Zutaten; bereits gespeicherte Rezept-Gesamtwerte bleiben erhalten. Originaldateien, reservierte Tage und bereits exportierte Einträge werden nicht geändert. BLS-Einträge ohne prüfbaren Snapshot bleiben gesperrt.
 
 Nährstoffnamen folgen dem Schema `dietaryEnergyConsumed`, `dietaryWater`, `dietaryCaffeine` usw. Grundlage: https://developer.apple.com/documentation/healthkit/nutrition-type-identifiers . Apple-Dokumentation war während der Erstellung aufgrund eines Netzwerkfehlers nicht abrufbar; vollständiges geprüftes HealthKit-Mapping steht noch aus. OFF liefert derzeit nur Energie, Makronährstoffe, Natrium und Koffein; weitere Mikronährstoffe folgen nach Prüfung.
 
@@ -133,7 +135,7 @@ Das Icon ist als `app/static/icon-192.png` und `icon-512.png` enthalten, verbund
 
 Im Dashboard ein Rezept mit Name und Gesamt-Portionszahl speichern. Für Gramm-Verzehr zusätzlich das **fertige** Gesamtgewicht angeben, z.B. nach dem Kochen 1.200 g. In der normalen Erfassung unter „Speichern in“ das Rezept wählen: Lebensmittel-Suche, Text, Barcode, Foto und Getränke stehen wie im Tagebuch zur Verfügung. Zutaten erscheinen mit dem ausgewählten Rezept in der Eintragsliste; ungeklärte Zutaten können dort zugeordnet werden. Zutaten werden nicht separat als Tagesverzehr oder nach Health exportiert. Fotos benötigen wie bisher eine manuelle Zuordnung.
 
-Verzehr buchen als Portionen (1 von z.B. 4 Portionen = 1/4 des Rezepts), als Bruchteil (0,25 = 1/4) oder in Gramm (150 g eines 600-g-Rezepts = 1/4). Datum und Uhrzeit können gewählt werden. Fehlende Mengen oder Zuordnungen blockieren die Berechnung. Fehlende Nährstoffe werden nicht als Null geraten: nur Nährstoffe, die alle Zutaten liefern, erhalten einen Rezept-Gesamtwert. Kochverluste werden nicht berechnet. Enthält das Rezept BLS-Zutaten, bleibt sein Health-Export wegen der ausstehenden Einheitenprüfung gesperrt.
+Verzehr buchen als Portionen (1 von z.B. 4 Portionen = 1/4 des Rezepts), als Bruchteil (0,25 = 1/4) oder in Gramm (150 g eines 600-g-Rezepts = 1/4). Datum und Uhrzeit können gewählt werden. Fehlende Mengen oder Zuordnungen blockieren die Berechnung. Fehlende Nährstoffe werden nicht als Null geraten: nur Nährstoffe, die alle Zutaten liefern, erhalten einen Rezept-Gesamtwert. Kochverluste werden nicht berechnet. Rezepte mit bestätigten BLS-Einheiten können nach Health exportiert werden; nicht prüfbare Alt-Einträge bleiben gesperrt.
 
 Jeder gebuchte Verzehr enthält einen Rezept-Snapshot. Spätere Änderungen an Rezeptname, Portionen, Gewicht oder Zutaten verändern keine alten Tagebucheinträge. Wiederholte Übertragung mit derselben UUID erzeugt keinen doppelten Verzehr.
 
@@ -155,7 +157,7 @@ Rechnung lokal im Browser, keine automatische Speicherung oder Tagebuch-Buchung;
 
 ## Home und Einstellungen (1.6.0)
 
-Home zeigt zuerst deine Schnellwahl-Buttons, darunter heutige Standard-Nährwerte als Liste, eine Tabelle für Koffein (mg), Alkohol (g Ethanol) und aktuellen modellierten BAC (% / ‰), danach alle weiteren Nährstoffe aus den BLS-Einträgen. Home verwendet immer den aktuellen lokalen Tag des Browsers. Die Datumswahl gilt für Mahlzeiten. Getrunkenes Wasser bleibt getrennt von Wasser in Lebensmitteln. Tagesgesamtwerte mit fehlenden Zutaten-/Nährwertangaben werden als unvollständig markiert; TR und Nachweisgrenzen bleiben erhalten. BLS-Mikronährstoffe ohne bestätigte Einheiten werden als vorläufige summierte Quelleinheiten dargestellt, nicht nach Health exportiert.
+Home zeigt zuerst deine Schnellwahl-Buttons, darunter heutige Standard-Nährwerte als Liste, eine Tabelle für Koffein (mg), Alkohol (g Ethanol) und aktuellen modellierten BAC (% / ‰), danach alle weiteren Nährstoffe aus den BLS-Einträgen. Home verwendet immer den aktuellen lokalen Tag des Browsers. Die Datumswahl gilt für Mahlzeiten. Getrunkenes Wasser bleibt getrennt von Wasser in Lebensmitteln. Tagesgesamtwerte mit fehlenden Zutaten-/Nährwertangaben werden als unvollständig markiert; TR und Nachweisgrenzen bleiben erhalten. Bestätigte BLS-Mikronährstoffe werden mit ihren Einheiten dargestellt; unbekannte Quellenwerte werden nicht nach Health exportiert.
 
 Unter Einstellungen Schnellwahl-Buttons anlegen, bearbeiten oder löschen: Wasser, Koffein, Alkohol, BLS-Lebensmittel, Barcode oder Text mit festgelegter Menge. Bei BLS kann über die Suche ein Code gewählt werden. Label und optionales Bild werden auf Home angezeigt. JPEG/PNG/WebP bis 5 MiB und 16 Megapixel; Bilder werden dekodiert, auf maximal 512×512 verkleinert und ohne Metadaten als PNG gespeichert. Bilder und Einstellungen liegen in SQLite und werden durch die Datenbank-Sicherung des Update-Skripts erfasst. Keine Fotos oder Schlüssel werden in Git gespeichert.
 
@@ -167,7 +169,7 @@ API: GET/PUT `/settings` (Versionsnummer verhindert konkurrierendes Überschreib
 
 Neue Seite „Statistik“: 7, 30 oder 90 Tage bzw. frei wählbarer Zeitraum bis 366 Tage. Summen und Tagesdurchschnitte für Kalorien, getrunkenes Wasser, Koffein und Alkohol; Verlauf zusätzlich für Protein, Kohlenhydrate und Fett. Interaktive Balkengrafik mit Tagesauswahl per Slider oder Tippen, darunter vollständige Tageswerttabelle. Tage ohne Einträge oder ohne berechnete Nährwerte bleiben Lücken. Durchschnitte pro Kennzahl teilen durch Tage mit berechnetem Wert, nicht durch alle Kalendertage. Die jeweiligen Tagzahlen sind sichtbar. Null bei Wasser/Koffein/Alkohol bedeutet keine entsprechende Menge protokolliert an einem Tag mit berechneten Einträgen, nicht bestätigte Nichtaufnahme.
 
-Offene Einträge und unvollständige Nährstoffsummen sind gekennzeichnet. BLS-Makrowerte beruhen weiterhin auf den bisherigen vorläufigen Einheiten-/100-g-Annahmen. Rezeptzutaten sind ausgeschlossen; gegessene Rezeptportionen sind enthalten. Kalendergrenzen einschließlich Sommer-/Winterzeit verwenden die IANA-Zeitzone des Browsers.
+Offene Einträge und unvollständige Nährstoffsummen sind gekennzeichnet. Die BLS-Einheiten und die Bezugsgröße pro 100 g sind bestätigt. Rezeptzutaten sind ausgeschlossen; gegessene Rezeptportionen sind enthalten. Kalendergrenzen einschließlich Sommer-/Winterzeit verwenden die IANA-Zeitzone des Browsers.
 
 API: `GET /statistics?start=2026-10-01&end=2026-10-10&tz=Europe/Berlin` (Start und Ende inklusive). Vollständige Auswertung ohne 1.000-Einträge-Limit, geschützt durch dieselbe Anmeldung. Keine neue Datenhaltung; bestehende Einträge werden ausgewertet.
 
@@ -177,7 +179,7 @@ Auf der Rezeptseite zusätzliche Mengen für das **ganze Rezept** erfassen: Wass
 
 Unter Einstellungen → Schnellwahl → Erfassung „Rezept“ wählen, Rezept und Menge auswählen (Portionen, Anteil 0–1 oder Gramm). Für Gramm ist das fertige Rezeptgewicht erforderlich. Ein Antippen auf Home bucht den Rezept-Verzehr mit allen berechneten Nährwerten, Koffein, Wasser und Alkohol. Derselbe Übertragungsversuch erzeugt keinen zweiten Eintrag; gespeicherte Rezept-Snapshots schützen frühere Mahlzeiten vor späteren Änderungen. Ungeklärte Zutaten blockieren die Buchung weiterhin.
 
-Wasser aus Rezeptzusätzen und expliziten Wasser-Zutaten zählt zu getrunkenem Wasser auf Home und in der Statistik. Wassergehalt aus BLS-Lebensmitteln bleibt davon getrennt. Alkohol aus Rezepten wird auch für den BAC-Modellwert berücksichtigt. Bestehende BLS-Health-Sperre bleibt bestehen.
+Wasser aus Rezeptzusätzen und expliziten Wasser-Zutaten zählt zu getrunkenem Wasser auf Home und in der Statistik. Wassergehalt aus BLS-Lebensmitteln bleibt davon getrennt. Alkohol aus Rezepten wird auch für den BAC-Modellwert berücksichtigt. Nur nicht prüfbare BLS-Alt-Einträge bleiben für Health gesperrt.
 
 API-Rezeptfelder: `added_water_ml`, `added_caffeine_mg`, `added_ethanol_g` (nichtnegative Mengen, Standard 0). Schnellwahl-Preset: `{"type":"recipe","recipe_id":"UUID","quantity":{"value":1,"unit":"portion"}}`.
 
@@ -187,7 +189,7 @@ Einstellungen: optionale, unabhängige Ziele für kcal, Protein, Kohlenhydrate u
 
 Health-Export listet die Tage in der iPhone-Zeitzone. „Tag exportieren“ reserviert eine unveränderliche Tagesdatei. Download/Teilen allein bedeutet **nicht**, dass Health geschrieben wurde. Erst nach erfolgreichem Schreiben durch einen iPhone-Kurzbefehl bestätigen. Bei Teilfehlern/Abbruch „fehlgeschlagen / unklar“ wählen und Health manuell prüfen. Keine automatische Wiederholung. Nachträgliche Tagebuchänderungen werden gekennzeichnet; vorhandene Health-Samples werden nicht automatisch korrigiert.
 
-BLS-Tage und Rezepte mit BLS bleiben wegen der ungeprüften Quelleinheiten gesperrt. Offene Einträge und vorherige Einzel-Exporte sperren ebenfalls die Tagesreservierung. Exportiert werden bekannte Ernährungswerte mit bestätigten Einheiten; fehlende Nährstoffe werden nicht als Null ergänzt. Alkoholgramm und BAC sind keine HealthKit-Ernährungstypen und werden nicht exportiert. Tageswerte haben als Zeitpunkt 12 Uhr in der gewählten Zeitzone. Rezeptzutaten werden ausgeschlossen.
+Tage und Rezepte mit bestätigten BLS-Einheiten sind exportierbar. Nicht prüfbare Alt-Einträge bleiben gesperrt. Offene Einträge und vorherige Einzel-Exporte sperren ebenfalls die Tagesreservierung. Exportiert werden bekannte Ernährungswerte mit bestätigten Einheiten; fehlende Nährstoffe werden nicht als Null ergänzt. Alkoholgramm und BAC sind keine HealthKit-Ernährungstypen und werden nicht exportiert. Tageswerte haben als Zeitpunkt 12 Uhr in der gewählten Zeitzone. Rezeptzutaten werden ausgeschlossen.
 
 ### iPhone-Kurzbefehl für die Tagesdatei
 

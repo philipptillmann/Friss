@@ -1,3 +1,10 @@
+## 1.13.1 — Bestätigte BLS-4.0-Einheiten
+
+- Originaltabelle bestätigt Einheiten und alle Werte pro 100 g; Mikronährstoffe werden berechnet und sind für Health verfügbar.
+- Noch nicht exportierte BLS-Einträge werden beim Start aus ihren gespeicherten Originalwerten ergänzt, einschließlich eingefrorener Rezeptzutaten. Exportierte Einträge und reservierte Tage bleiben unverändert.
+- TR/null bleiben unbekannt; nicht belegte Einheiten bleiben gesperrt. Lebensmittelwasser bleibt in g und wird nicht als Health-Wasservolumen exportiert.
+- 46 Python-Tests sowie BAC- und JavaScript-Prüfungen bestanden.
+
 # Changelog
 
 ## 1.13.0

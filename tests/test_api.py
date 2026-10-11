@@ -81,8 +81,10 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         p=self.payload(type='item',drink=None,bls_code='TEST',quantity={'value':180,'unit':'g'})
         e=(await self.client.post('/entries',json=p)).json()
         self.assertAlmostEqual(e['nutrients']['dietaryEnergyConsumed']['value'],104.4)
-        self.assertNotIn('dietaryVitaminB6',e['nutrients'])
-        self.assertEqual((await self.client.post('/health-export/'+p['id']+'/claim')).status_code,409)
+        self.assertAlmostEqual(e['nutrients']['dietaryVitaminB6']['value'],103.698)
+        self.assertEqual(e['nutrients']['dietaryVitaminB6']['unit'],'mcg')
+        self.assertNotIn('dietaryVitaminC',e['nutrients'])
+        self.assertEqual((await self.client.post('/health-export/'+p['id']+'/claim')).status_code,200)
         self.assertEqual((await self.client.get('/foods',params={'q':'Apple','lang':'en'})).json()[0]['display_name'],'Apple')
 
     async def test_dashboard_and_date_filter(self):
@@ -91,7 +93,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Dashboard',response.text)
         self.assertIn('>Passwort</label>',response.text)
         self.assertNotIn('API-Schlüssel',response.text)
-        self.assertIn('app.js?v=1.13.0',response.text)
+        self.assertIn('app.js?v=1.13.1',response.text)
         self.assertEqual(response.headers['cache-control'],'no-store')
         self.assertEqual((await self.client.get('/entries',headers={'Authorization':'bad'})).status_code,401)
         await self.client.post('/entries',json=self.payload())

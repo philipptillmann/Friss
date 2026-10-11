@@ -1,4 +1,5 @@
 """Persisted Home preferences, button images, and daily nutrient summaries."""
+from . import bls_units
 import io
 import json
 import math
@@ -73,8 +74,8 @@ def nutrient_values(e):
         for key,raw in e['food'].get('nutrients',{}).items():
             if key not in values:
                 if isinstance(raw,(int,float)) and not isinstance(raw,bool) and math.isfinite(raw) and raw>=0:
-                    values[key]={'value':raw*e['quantity']['value']/100,'unit':None}
-                else: values[key]={'value':None,'unit':None,'qualifier':raw}
+                    values[key]={'value':raw*e['quantity']['value']/100,'unit':bls_units.UNITS.get(key)}
+                else: values[key]={'value':None,'unit':bls_units.UNITS.get(key),'qualifier':raw}
     if e.get('recipe_snapshot'):
         r=e['recipe_snapshot'];q=e['quantity'];factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']
         ingredients=[nutrient_values(i) for i in r['ingredients']]

@@ -1,4 +1,5 @@
 """Immutable daily export batches; Health writes happen on the iPhone."""
+from . import bls_units
 import hashlib
 import json
 from datetime import date, datetime, time, timedelta
@@ -29,9 +30,9 @@ def fingerprint(entries):
 def blocked(entries):
     if not entries: return 'empty'
     if any(e['status']!='processed' for e in entries): return 'unresolved'
-    if any(e.get('source',{}).get('provider')=='BLS' for e in entries): return 'bls_units'
+    if any(bls_units.blocked(e) for e in entries): return 'bls_units'
     if any(e['health_status']!='pending' for e in entries): return 'previous_export'
-    if not any(e.get('nutrients') for e in entries): return 'no_nutrients'
+    if not any(bls_units.exportable(e) for e in entries): return 'no_nutrients'
     return None
 
 def install(app, db, auth):
@@ -68,6 +69,9 @@ def install(app, db, auth):
             for e in entries:
                 for key,n in e['nutrients'].items():
                     unit=n['unit'];value=n['value']
+                    # BLS food water is a mass, not a logged drink volume.
+                    # Keep it visible in Friss; export only explicit water volumes.
+                    if key=='dietaryWater' and unit!='ml': continue
                     if unit in ('g','mg','mcg'):
                         value*=dict(g=1,mg=.001,mcg=.000001)[unit];unit='g'
                     if key in totals and totals[key]['unit']!=unit: raise HTTPException(409,'Incompatible nutrient units')
