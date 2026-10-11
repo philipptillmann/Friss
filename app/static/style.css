@@ -19,3 +19,5 @@
 .entryLink{display:block;text-decoration:none;color:inherit;flex:1;min-width:0}.entryLink:hover strong{text-decoration:underline}#detailMetadata dd{overflow-wrap:anywhere}#detailTimeForm{margin-bottom:24px}
 
 .reuseTabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}.reuseTabs [aria-expanded="true"]{background:#294f3d;color:white}#reusePanel{padding:16px;background:#eff2e9;border-radius:14px;margin-bottom:20px}#reuseList{max-height:340px;overflow:auto}.reuseChoice{display:block;width:100%;text-align:left;margin:8px 0}.reuseChoice small{display:block;color:#677b6d;margin-top:4px}#page-favorites>.panel+ .panel{margin-top:24px}.favoriteRow{padding:16px 0;border-bottom:1px solid #e0e7dd}.favoriteRow strong{display:block;margin-bottom:8px}
+
+#page-manual>.panel+ .panel{margin-top:24px}.manualNutrient{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 85px;align-items:center;gap:10px;margin:10px 0}.manualNutrient label{margin:0}.manualNutrient select{width:100%}@media(max-width:450px){.manualNutrient{grid-template-columns:minmax(0,1fr) 85px}.manualNutrient label{grid-column:1/-1}}

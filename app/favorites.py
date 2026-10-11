@@ -7,8 +7,9 @@ from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
 
 class Ingredient(BaseModel):
-    type: Literal['item','barcode','text','drink']
+    type: Literal['item','barcode','text','drink','manual']
     quantity: dict | None = None
+    manual_id: UUID | None = None
     bls_code: str | None = None
     barcode: str | None = None
     description: str | None = None
@@ -33,7 +34,8 @@ class Favorite(FavoriteEdit):
 def reusable(e):
     if e['type']=='recipe': return None
     code=e.get('bls_code') or (e.get('food') or {}).get('bls_code')
-    if code: spec={'type':'item','bls_code':code}
+    if e['type']=='manual':spec={'type':'manual','manual_id':e['manual_id']}
+    elif code: spec={'type':'item','bls_code':code}
     elif e.get('barcode'): spec={'type':'barcode','barcode':e['barcode']}
     elif e['type']=='drink':
         spec={k:e.get(k) for k in ['type','drink','caffeine_mg','alcohol_abv','description']}
@@ -46,6 +48,7 @@ def reusable(e):
     return {'entry':spec,'name_de':label_de,'name_en':label_en,'last_entry_id':e['id'],'last_timestamp':e['timestamp'],'last_location':'recipe' if e.get('recipe_id') else 'daily'}
 
 def identity(spec):
+    if spec['type']=='manual':return ('manual',spec['manual_id'])
     if spec['type']=='item': return ('item',spec['bls_code'])
     if spec['type']=='barcode': return ('barcode',spec['barcode'])
     if spec['type']=='text': return ('text',spec['description'].strip().casefold())
@@ -60,6 +63,9 @@ def install(app,db,auth,Entry):
         try:
             e=Entry(id=uuid4(),timestamp=datetime.now(timezone.utc),**body.entry.model_dump())
         except ValueError: raise HTTPException(422,'Invalid ingredient fields or quantity')
+        if e.type=='manual':
+            from .manual_ingredients import load
+            load(db,e.manual_id)
         if e.type=='item':
             with db() as c: row=c.execute('SELECT code FROM foods WHERE code=?',(e.bls_code,)).fetchone()
             if not row: raise HTTPException(422,'Select an existing BLS food')

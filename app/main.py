@@ -49,6 +49,7 @@ async def lifespan(app):
         CREATE INDEX IF NOT EXISTS food_search_query ON food_search_selections(query,lang,code);
         CREATE TABLE IF NOT EXISTS preferences(id INTEGER PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS button_images(id TEXT PRIMARY KEY, content BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS manual_ingredients(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS favorites(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS health_days(id TEXT PRIMARY KEY, day TEXT NOT NULL, timezone TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(day,timezone));
@@ -70,7 +71,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.12.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.13.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -83,11 +84,12 @@ class Quantity(BaseModel):
 
 class Entry(BaseModel):
     id: UUID
-    type: Literal['text','barcode','picture','item','drink']
+    type: Literal['text','barcode','picture','item','drink','manual']
     timestamp: datetime
     quantity: Quantity | None = None
     description: str | None = Field(default=None, max_length=10000)
     barcode: str | None = Field(default=None, pattern=r'^\d{8,14}$')
+    manual_id: UUID | None = None
     bls_code: str | None = None
     filename: str | None = None
     capture_method: Literal['recent','favorite'] | None = None
@@ -100,6 +102,8 @@ class Entry(BaseModel):
     def validate_entry(self):
         if self.timestamp.utcoffset() is None:
             raise ValueError('timestamp requires timezone')
+        if self.type=='manual' and (not self.manual_id or self.bls_code):
+            raise ValueError('Manual ingredient required; do not combine with BLS')
         if self.type == 'barcode' and not self.barcode:
             raise ValueError('barcode required')
         if self.type == 'drink' and not self.drink:
@@ -140,7 +144,15 @@ async def process(e, reuse_off=False):
             return
         e.update(status='processed', reason=None)
         return
-    if e.get('bls_code') or e['type'] == 'text':
+    if e['type']=='manual':
+        snapshot=e.get('manual_snapshot') or manual_ingredients.load(db,e['manual_id'])
+        e['manual_snapshot']=snapshot
+        food={'name_de':snapshot['name_de'],'name_en':snapshot['name_en'],'manual_id':snapshot['id']}
+        e['food']=food;e['source']={'provider':'Manual','id':snapshot['id'],'version':snapshot['version']}
+        raw=snapshot['nutrients'];basis='g'
+        if q and q['unit']=='g' and snapshot.get('ethanol_g_per100') is not None:
+            e['ethanol_g']=snapshot['ethanol_g_per100']*q['value']/100
+    elif e.get('bls_code') or e['type'] == 'text':
         with db() as c:
             if e.get('bls_code'):
                 row = c.execute('SELECT payload FROM foods WHERE code=?',(e['bls_code'],)).fetchone()
@@ -186,7 +198,7 @@ async def process(e, reuse_off=False):
             e['nutrients'][key]={'value':value*q['value']/100, 'unit':item['unit']}
         elif value is not None:
             e['warnings'].append(key+': source value or unit unresolved')
-    if e['nutrients']:
+    if e['nutrients'] or 'ethanol_g' in e:
         e.update(status='processed', reason=None)
 
 @app.get('/health', dependencies=[Depends(auth)])
@@ -210,6 +222,8 @@ async def create(entry: Entry):
             if existing['fingerprint'] != fingerprint:
                 raise HTTPException(409,'ID already used with different content')
             return json.loads(existing['payload'])
+        if entry.type=='manual':
+            e['manual_snapshot']=manual_ingredients.load(db,entry.manual_id)
         # Preserve validated original before processing; transaction commits before network lookup.
         (DATA/'originals'/f"{e['id']}.json").write_text(json.dumps(payload,ensure_ascii=False))
         c.execute('INSERT INTO entries VALUES(?,?,?)',(e['id'],fingerprint,json.dumps(e)))
@@ -575,3 +589,6 @@ favorites.install(app, db, auth, Entry)
 
 from . import food_search
 food_search.install(app, db, auth, normalize)
+
+from . import manual_ingredients
+manual_ingredients.install(app,db,auth)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.0
+
+Eigene Zutaten mit Deutsch-/Englisch-Namen und expliziten Nährwerten pro 100 g anlegen, bearbeiten und löschen. Auswahl in Mahlzeiten und Rezeptzutaten; Integration in zuletzt benutzt und Favoriten. Unbekannte Werte bleiben leer, Einträge behalten unveränderliche Definitions-Momentaufnahmen.
+
 ## 1.12.1
 
 Mengenbeschriftung ohne „optional“, spätere Ergänzung bleibt möglich. Nachbearbeitung stellt bekannte Lebensmittel, Menge, Zeitpunkt und Getränkeparameter wieder her. Bereits erkannte OFF-Produkte werden bei Mengenergänzung aus gespeicherten Daten berechnet.

@@ -41,7 +41,7 @@ function useReusable(item){
  if(attempt||editing){message(t('reusePending'),true);return;}
  if(currentPage!=='recipes'&&currentPage!=='meals'){location.hash='meals';showPage('meals');}
  const e=item.entry,kind=e.type==='drink'?e.drink:e.type;
- $('kind').value=kind;kindChange();reusedVia=item.id?'favorite':'recent';
+ $('kind').value=kind;kindChange();if(kind==='manual'){ensureManualOption('manualCaptureSelect',e.manual_id,reusableName(item));updateManualCaptureInfo();}reusedVia=item.id?'favorite':'recent';
  if(kind==='item'){selected={bls_code:e.bls_code,display_name:reusableName(item)};$('selected').textContent=reusableName(item);$('search').value=reusableName(item);}
  if(kind==='barcode')$('description').value=e.barcode;
  if(kind==='text')$('description').value=e.description;
@@ -55,6 +55,7 @@ $('favoriteToggle').onclick=()=>{reuseMode=reuseMode==='favorites'?null:'favorit
 $('reuseSearch').oninput=renderReusable;
 function favoriteFields(){
  const kind=$('favoriteKind').value,drink=['water','coffee','alcohol'].includes(kind);
+ $('favoriteManualGroup').hidden=kind!=='manual';$('favoriteManual').required=kind==='manual';$('favoriteManual').disabled=kind!=='manual';
  $('favoriteFoodGroup').hidden=kind!=='item';$('favoriteCode').required=kind==='item';$('favoriteCode').disabled=kind!=='item';$('favoriteFoodSearch').disabled=kind!=='item';
  $('favoriteDescriptionGroup').hidden=!['barcode','text'].includes(kind);$('favoriteDescription').required=['barcode','text'].includes(kind);$('favoriteDescription').disabled=!['barcode','text'].includes(kind);
  $('favoriteCaffeineGroup').hidden=kind!=='coffee';$('favoriteCaffeine').required=kind==='coffee';$('favoriteCaffeine').disabled=kind!=='coffee';
@@ -67,7 +68,7 @@ function editFavorite(item=null){
  const entry=item?.entry;$('favoriteEditorTitle').textContent=t(favoriteEditing?'editFavorite':'newFavorite');
  $('favoriteLabel').value=item?reusableName(item):'';
  $('favoriteKind').value=entry?.type==='drink'?entry.drink:entry?.type||'item';
- $('favoriteCode').value=entry?.bls_code||'';$('favoriteDescription').value=entry?.barcode||entry?.description||'';
+ if(entry?.type==='manual')ensureManualOption('favoriteManual',entry.manual_id,reusableName(item));else $('favoriteManual').value='';$('favoriteCode').value=entry?.bls_code||'';$('favoriteDescription').value=entry?.barcode||entry?.description||'';
  $('favoriteAmount').value=entry?.quantity?.value??'';$('favoriteCaffeine').value=entry?.caffeine_mg??'';$('favoriteAlcohol').value=entry?.alcohol_abv??'';
  favoriteFields();$('favoriteLabel').focus();
 }
@@ -92,6 +93,7 @@ $('favoriteForm').onsubmit=async event=>{
  event.preventDefault();const button=event.submitter;button.disabled=true;
  const kind=$('favoriteKind').value,drink=['water','coffee','alcohol'].includes(kind);
  const entry={type:drink?'drink':kind,quantity:$('favoriteAmount').value?{value:Number($('favoriteAmount').value),unit:drink?'ml':'g'}:null};
+ if(kind==='manual')entry.manual_id=$('favoriteManual').value;
  if(kind==='item')entry.bls_code=$('favoriteCode').value.trim();
  if(kind==='barcode')entry.barcode=$('favoriteDescription').value.trim();
  if(kind==='text')entry.description=$('favoriteDescription').value;

@@ -239,3 +239,13 @@ POST /food-search/selections erhält id (UUID pro Auswahl), query, lang (de/en) 
 ## Nachbearbeiten (1.12.1)
 
 Die Mengenbeschriftung heißt „Menge (g)“. Bei der ersten Erfassung darf sie weiterhin leer sein; beim Nachbearbeiten wird eine Menge benötigt. „Nachbearbeiten“ lädt das bereits bekannte Lebensmittel, Menge, ursprünglichen Zeitpunkt und vorhandene Getränkeparameter in die Erfassungsmaske. Nur noch Fehlendes ergänzen. Ohne bisherige Lebensmittelzuordnung bleibt die Suche nötig. Erkannte OFF-Produkte werden beim Ergänzen der Menge aus ihren gespeicherten Produktdaten berechnet; die ursprüngliche Erfassungsmethode, Rezeptzuordnung und Originaldatei bleiben erhalten.
+
+## Eigene Zutaten (1.13.0)
+
+Auf der Seite „Eigene Zutaten“ Namen, Notizen und bekannte Nährwerte **pro 100 g** erfassen. Ein leerer englischer Name übernimmt den deutschen Namen. Die Oberfläche bietet Kalorien, Makros und alle unterstützten weiteren Ernährungswerte mit expliziter Einheit. Wasser verwendet ml, Energie kcal, Massenwerte g/mg/mcg; reiner Alkohol hat ein eigenes g-pro-100-g-Feld. Keine automatische Schätzung von Kalorien aus Makronährstoffen. Leer bedeutet unbekannt; eingegebene 0 bedeutet bekanntes Null. Mindestens ein Wert ist erforderlich.
+
+Unter Mahlzeiten und Rezeptzutaten „Eigene Zutaten“ als Erfassungsoption wählen, Definition auswählen und konsumierte/verwendete Gramm eingeben. Eine zunächst fehlende Menge kann wie gewohnt nachbearbeitet werden. Erfassung speichert eine Definitions-Momentaufnahme. Änderungen und Löschen an einer Definition verändern keine vorhandenen Mahlzeiten oder Rezeptzutaten. Um eine aktualisierte Definition in einem bestehenden Rezept zu verwenden, dessen entsprechende Zutat neu hinzufügen. Bereits gebuchter Rezeptverzehr behält ebenfalls seine Werte.
+
+Zuletzt benutzt und Favoriten können eigene Zutaten wiederverwenden. Gelöschte Definitionen müssen für neuen Verzehr neu angelegt bzw. durch eine gültige Definition ersetzt werden; vorhandene Einträge mit fehlender Menge lassen sich anhand ihrer gespeicherten Momentaufnahme weiterhin vervollständigen. Werte mit expliziten Einheiten gehen in Home, Statistik, Rezepte und Health-Ernährungsexport ein. Alkoholgramm fließen in das lokale Alkoholtracking ein; BAC wird wie bisher nur geschätzt. Nahrungswasser ist weiterhin kein separat getrunkenes Wasser.
+
+Die Definitionen liegen in SQLite und sind Bestandteil des bestehenden Backups. Alle API-Endpunkte benötigen Authentifizierung: GET/POST /manual-ingredients, GET /manual-ingredients/schema, PUT /manual-ingredients/{id}, DELETE /manual-ingredients/{id}?version=N. Versionsprüfung verhindert Überschreiben paralleler Änderungen.
