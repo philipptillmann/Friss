@@ -203,3 +203,9 @@ Ein Kurzbefehl muss erst auf dem iPhone erstellt und getestet werden; diese Vers
 API für eine spätere automatische Anbindung: GET /health-days?tz=Europe/Berlin, POST /health-days/prepare mit day und timezone, GET /health-days/{id}, POST /health-days/{id}/ack mit export_token und success. Authentifizierung wie bisher über Bearer-API-Key bzw. Dashboard-Sitzung. API-Key nicht in geteilten Dateien speichern.
 
 Rezeptbuchungen speichern Nährwerte und Rezeptdetails zum Buchungszeitpunkt. Rezeptänderungen betreffen nur künftige Buchungen. Alte Verzehre bei Bedarf löschen und neu buchen; Health-Korrekturen separat vornehmen.
+
+## Barcode per Foto (1.9.1)
+
+Bei Erfassung „Barcode“ auf „Barcode fotografieren“ tippen. Der iPhone-Kameradialog verwendet ein Datei-Eingabefeld mit capture=environment; Live-Kamera/HTTPS sind dafür nicht erforderlich. Der Browser verkleinert das Bild bei Bedarf auf 2.400 Pixel und sendet JPEG an den authentifizierten Endpunkt POST /barcode-scan. Der Server dekodiert EAN-8, EAN-13 und UPC-A mit ZXing-C++; das Scanbild wird nicht dauerhaft gespeichert oder an Open Food Facts geschickt. Bei mehreren Treffern Nummer auswählen, Menge in Gramm angeben und speichern. Erst beim Speichern erfolgt die Open-Food-Facts-Abfrage. Bei unscharfen Bildern erneut fotografieren oder Nummer manuell eingeben. Der genaue Kameradialog hängt vom Browser ab.
+
+Auch bei Rezeptzutaten und Barcode-Presets unter Einstellungen verfügbar. Keine automatische Buchung durch einen Scan. Maximale Uploadgröße 10 MiB / 16 Megapixel; unterstützte Serverbildformate JPEG, PNG und WebP. HEIC wird nach Möglichkeit durch den Browser nach JPEG konvertiert; kann der Browser das Bild nicht öffnen, bitte JPEG verwenden. Scan-Prüfungen verwenden echte generierte Barcodes, rotierte Bilder, mehrere Codes, fehlerhafte Uploads und eine simulierte OFF-Antwort.

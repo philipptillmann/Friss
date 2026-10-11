@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1
+
+Barcode fotografieren über den iPhone-Datei-/Kamera-Dialog, lokal auf dem Server dekodieren und Nummer übernehmen. EAN-8, EAN-13 und UPC-A; Auswahl bei mehreren Treffern. In Mahlzeiten, Rezeptzutaten und Barcode-Schnellwahl verfügbar; manuelle Eingabe bleibt möglich.
+
 ## 1.9.0
 
 Zutaten ohne Health-Status, Rezept-Momentaufnahmen erklärt. Einstellbare Kalorien-/Makroziele mit Fortschrittsanzeigen auf Home. Health-Tagesexport mit unveränderlichen Reservierungen, Download/Teilen für iPhone-Kurzbefehle, ausdrücklicher Erfolgsbestätigung und Änderungskennzeichnung. BLS-Einheitensperre bleibt erhalten.
