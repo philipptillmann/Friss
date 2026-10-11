@@ -20,6 +20,32 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.tmp.cleanup()
     def payload(self,**kwargs):
         return {'id':str(uuid4()),'timestamp':'2026-10-04T15:31:06+02:00','type':'drink','drink':'water','quantity':{'value':250,'unit':'ml'},**kwargs}
+    async def test_delete_and_day_reset(self):
+        entries=[self.payload(timestamp=t) for t in [
+            '2026-10-04T00:00:00+02:00','2026-10-04T23:59:59+02:00',
+            '2026-10-05T00:00:00+02:00']]
+        for entry in entries:
+            await self.client.post('/entries',json=entry)
+        recipe={'id':str(uuid4()),'name':'Keep recipe','servings':1}
+        await self.client.post('/recipes',json=recipe)
+        ingredient=self.payload(recipe_id=recipe['id'])
+        await self.client.post('/entries',json=ingredient)
+        await self.client.post('/health-export/'+entries[0]['id']+'/claim')
+        params={'start':'2026-10-04T00:00:00+02:00','end':'2026-10-05T00:00:00+02:00'}
+        self.assertEqual((await self.client.delete('/entries',params=params,headers={'Authorization':'bad'})).status_code,401)
+        self.assertEqual((await self.client.delete('/entries',params={**params,'start':'2026-10-04T00:00:00'})).status_code,422)
+        result=await self.client.delete('/entries',params=params)
+        self.assertEqual(result.json(),{'deleted':2,'health_correction_required':True})
+        self.assertEqual([e['id'] for e in (await self.client.get('/entries')).json()],[entries[2]['id']])
+        self.assertEqual((await self.client.get('/entries/'+ingredient['id'])).status_code,200)
+        self.assertTrue((main.DATA/'originals'/f"{entries[0]['id']}.json").exists())
+        self.assertEqual((await self.client.post('/health-export/'+entries[0]['id']+'/claim')).status_code,404)
+        result=await self.client.delete('/entries/'+entries[2]['id'])
+        self.assertEqual(result.json(),{'deleted':1,'health_correction_required':False})
+        self.assertEqual((await self.client.delete('/entries/'+entries[2]['id'])).status_code,404)
+        await self.client.delete('/entries/'+ingredient['id'])
+        self.assertEqual((await self.client.get('/recipes/'+recipe['id'])).json()['ingredients'],[])
+
     async def test_auth(self):
         self.assertEqual((await self.client.get('/entries',headers={'Authorization':'bad'})).status_code,401)
     async def test_idempotency_and_conflict(self):
@@ -65,7 +91,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Dashboard',response.text)
         self.assertIn('>Passwort</label>',response.text)
         self.assertNotIn('API-Schlüssel',response.text)
-        self.assertIn('app.js?v=1.8.2',response.text)
+        self.assertIn('app.js?v=1.8.3',response.text)
         self.assertEqual(response.headers['cache-control'],'no-store')
         self.assertEqual((await self.client.get('/entries',headers={'Authorization':'bad'})).status_code,401)
         await self.client.post('/entries',json=self.payload())

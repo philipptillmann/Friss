@@ -66,7 +66,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.8.2', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.8.3', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -220,6 +220,28 @@ async def entries(status: str | None=None, limit:int=Query(default=100,ge=1,le=1
     if any(t is not None and t.utcoffset() is None for t in (start,end)):
         raise HTTPException(422, 'Date filters require timezone')
     return [e for e in result if not e.get('recipe_id') and (status is None or e['status']==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
+
+@app.delete('/entries', dependencies=[Depends(auth)])
+async def reset_day(start: datetime, end: datetime):
+    if start.utcoffset() is None or end.utcoffset() is None or not 0 < (end-start).total_seconds() <= 90000:
+        raise HTTPException(422, 'Specify a timezone-aware day interval of at most 25 hours')
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        selected=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
+        selected=[e for e in selected if not e.get('recipe_id') and start <= datetime.fromisoformat(e['timestamp']) < end]
+        c.executemany('DELETE FROM entries WHERE id=?', [(e['id'],) for e in selected])
+    return {'deleted':len(selected), 'health_correction_required':any(e['health_status'] != 'pending' for e in selected)}
+
+@app.delete('/entries/{id}', dependencies=[Depends(auth)])
+async def delete_entry(id: UUID):
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row=c.execute('SELECT payload FROM entries WHERE id=?', (str(id),)).fetchone()
+        if not row:
+            raise HTTPException(404, 'Entry not found')
+        e=json.loads(row['payload'])
+        c.execute('DELETE FROM entries WHERE id=?', (str(id),))
+    return {'deleted':1, 'health_correction_required':e['health_status'] != 'pending'}
 
 @app.get('/entries/{id}', dependencies=[Depends(auth)])
 async def get_entry(id: UUID):

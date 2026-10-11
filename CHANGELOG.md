@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.3
+
+Einzelne Tagebucheinträge und Rezeptzutaten löschen; ausgewählten Tagebuchtag zurücksetzen, jeweils mit Bestätigung. Rezepte und Originaldateien bleiben erhalten. Hinweis auf separat nötige Apple-Health-Korrekturen.
+
 ## 1.8.2
 
 Größeres App-Icon mit gemeinsam ausgerichteter Grundlinie von f und Punkt. Neue Icon-Dateinamen für iOS und PWA.
