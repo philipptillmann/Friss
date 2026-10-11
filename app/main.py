@@ -45,6 +45,8 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, expires REAL NOT NULL, password_version TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS login_attempts(client TEXT PRIMARY KEY, failures INTEGER NOT NULL, window REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS foods(code TEXT PRIMARY KEY, payload TEXT NOT NULL, search TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS food_search_selections(id TEXT PRIMARY KEY, query TEXT NOT NULL, lang TEXT NOT NULL, code TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS food_search_query ON food_search_selections(query,lang,code);
         CREATE TABLE IF NOT EXISTS preferences(id INTEGER PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS button_images(id TEXT PRIMARY KEY, content BLOB NOT NULL);
         CREATE TABLE IF NOT EXISTS favorites(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
@@ -68,7 +70,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.11.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.12.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -190,10 +192,7 @@ async def health():
 
 @app.get('/foods', dependencies=[Depends(auth)])
 async def foods(q: str = Query(min_length=1,max_length=200), lang: Literal['de','en']='de', limit:int=Query(default=20,ge=1,le=100)):
-    query = normalize(q).replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
-    with db() as c:
-        rows=c.execute("SELECT payload FROM foods WHERE search LIKE ? ESCAPE '\\' ORDER BY code LIMIT ?", ('%'+query+'%',limit)).fetchall()
-    return [{'display_name':f['name_'+lang], **f} for f in [json.loads(r['payload']) for r in rows]]
+    return food_search.search(db, normalize, q, lang, limit)
 
 @app.post('/entries', status_code=201, dependencies=[Depends(auth)])
 async def create(entry: Entry):
@@ -544,3 +543,6 @@ barcode_scan.install(app, auth)
 
 from . import favorites
 favorites.install(app, db, auth, Entry)
+
+from . import food_search
+food_search.install(app, db, auth, normalize)

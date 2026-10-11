@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.0
+
+Lernende BLS-Suchsortierung nach ausgewählten Treffern pro normalisiertem Suchbegriff und Sprache. Häufigkeit, letzte Auswahl und Textrelevanz bestimmen die Reihenfolge vor der Trefferbegrenzung. Auswahl aus Mahlzeiten, Rezeptzutaten, Favoriten und Schnellwahl lernt gemeinsam; Speicherung lokal in SQLite.
+
 ## 1.11.0
 
 Zuletzt benutzte Lebensmittel aus Tagebuch und Rezeptzutaten mit Deduplizierung und Vorschlagsmengen. Separate Favoritenseite zum Anlegen, Bearbeiten, Löschen und Verwenden; persistente Vorlagen ohne Health-Status. Auswahl füllt die bestehende Erfassungsmaske, ohne automatisch zu buchen.

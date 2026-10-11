@@ -76,14 +76,14 @@ $('cancelFavorite').onclick=()=>editFavorite();
 $('favoriteKind').onchange=()=>{favoriteSearchGeneration++;favoriteFields();};
 $('favoriteRecent').onchange=()=>{const r=recentIngredients[Number($('favoriteRecent').value)];if($('favoriteRecent').value&&r)editFavorite(r);};
 $('favoriteFoodSearch').oninput=async()=>{
- const generation=++favoriteSearchGeneration;const q=$('favoriteFoodSearch').value.trim();$('favoriteFoodResults').replaceChildren();$('favoriteCode').value='';
+ const generation=++favoriteSearchGeneration;const q=$('favoriteFoodSearch').value.trim(),searchLang=lang;$('favoriteFoodResults').replaceChildren();$('favoriteCode').value='';
  if(!q)return;
  try{
- const foods=await api('/foods?q='+encodeURIComponent(q)+'&lang='+lang);
- if(generation!==favoriteSearchGeneration||$('dashboard').hidden||$('favoriteKind').value!=='item')return;
+ const foods=await api('/foods?q='+encodeURIComponent(q)+'&lang='+searchLang);
+ if(generation!==favoriteSearchGeneration||searchLang!==lang||$('dashboard').hidden||$('favoriteKind').value!=='item')return;
  for(const food of foods){
  const b=document.createElement('button');b.type='button';b.className='result';b.textContent=food.display_name;
- b.onclick=()=>{$('favoriteCode').value=food.bls_code;$('favoriteFoodSearch').value=food.display_name;if(!$('favoriteLabel').value)$('favoriteLabel').value=food.display_name;$('favoriteFoodResults').replaceChildren();};$('favoriteFoodResults').append(b);
+ b.onclick=()=>{rememberFoodSelection(q,food.bls_code,searchLang);$('favoriteCode').value=food.bls_code;$('favoriteFoodSearch').value=food.display_name;if(!$('favoriteLabel').value)$('favoriteLabel').value=food.display_name;$('favoriteFoodResults').replaceChildren();};$('favoriteFoodResults').append(b);
  }
  if(!foods.length)$('favoriteFoodResults').textContent=t('none');
  }catch(e){if(generation===favoriteSearchGeneration)message(e.message,true);}

@@ -227,3 +227,11 @@ Im Eingabebereich „Zuletzt benutzt“ oder „Favoriten“ öffnen. Ein Treffe
 Die Favoritenseite bietet Anlegen über Lebensmittelsuche, Barcode, Text oder Getränke sowie Übernahme aus zuletzt benutzten Lebensmitteln. Name, Zuordnung und Vorschlagsmenge sind editierbar. Favoriten liegen in SQLite, bleiben nach Neustart erhalten und werden vom vorhandenen Backup erfasst. Änderungen/Löschen wirken nur auf Vorlagen, nicht auf bestehende Mahlzeiten, Rezepte oder Health-Daten. Löschen fragt nach Bestätigung. Gleichzeitige Änderungen werden über eine Versionsnummer abgefangen.
 
 API: GET /recent-ingredients?limit=100 (maximal 200), GET/POST /favorites, PUT /favorites/{id}, DELETE /favorites/{id}?version=N. Alle Endpunkte benötigen Authentifizierung. Vorlagen enthalten weder Verbrauchszeitpunkt noch recipe_id oder Health-Status.
+
+## Lernende BLS-Suche (1.12.0)
+
+Jeder bewusst angeklickte BLS-Suchtreffer speichert eine Zuordnung von Suchbegriff, UI-Sprache und BLS-Code. Groß-/Kleinschreibung, äußere/mehrfache Leerzeichen und Akzente werden normalisiert. Wenn du bei „Zucker“ Haushaltszucker auswählst, wird derselbe Treffer bei zukünftigen Suchen nach „Zucker“ höher angezeigt. Häufigere Auswahlen stehen zuerst; bei gleicher Häufigkeit zählt die zuletzt getroffene Auswahl. Danach folgen exakte Namen, Namensanfänge und kürzere Bezeichnungen. Die Sortierung findet vor der Begrenzung auf die angefragte Trefferzahl statt.
+
+Mahlzeiten- und Rezeptzutatensuche, Favoritensuche und Schnellwahl-Suche verwenden dieselben persönlichen Zuordnungen. Deutsch und Englisch sowie verschiedene Suchbegriffe werden getrennt gelernt. Bloßes Tippen, Anzeige eines Treffers, automatisches Textauflösen oder Wiederverwenden eines Favoriten zählen nicht als Suchauswahl. Die Zuordnungen liegen lokal in SQLite, bleiben nach Neustart erhalten und sind Bestandteil der bestehenden Datenbanksicherung. Aktuell gilt die Personalisierung für den gemeinsamen Friss-Zugang.
+
+POST /food-search/selections erhält id (UUID pro Auswahl), query, lang (de/en) und bls_code. Wiederholte Übertragung derselben ID zählt nur einmal. Die API prüft, dass der gewählte BLS-Treffer zur Suche gehört. Schlägt das Lernen fehl, bleibt der gewählte Lebensmittel-Treffer verwendbar und das Dashboard zeigt einen Hinweis.
