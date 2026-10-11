@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.0
+
+Rezeptverzehr als Erfassungsoption statt separatem Mahlzeitenpanel. Anklickbare Tagebucheinträge mit Detailseite für Metadaten, Herkunft, Health-Status und sämtliche Mengenbeiträge. Zeitpunkt bearbeitbar, Originaldateien und Nährwert-Momentaufnahmen bleiben erhalten; betroffene Health-Tagesexporte werden als geändert markiert.
+
 ## 1.9.1
 
 Barcode fotografieren über den iPhone-Datei-/Kamera-Dialog, lokal auf dem Server dekodieren und Nummer übernehmen. EAN-8, EAN-13 und UPC-A; Auswahl bei mehreren Treffern. In Mahlzeiten, Rezeptzutaten und Barcode-Schnellwahl verfügbar; manuelle Eingabe bleibt möglich.

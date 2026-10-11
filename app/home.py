@@ -69,7 +69,7 @@ MASS = {'g':1,'mg':.001,'mcg':.000001}
 
 def nutrient_values(e):
     values={k:dict(v) for k,v in e.get('nutrients',{}).items()}
-    if e.get('source',{}).get('provider')=='BLS' and e.get('food',{}).get('bls_code') and e.get('quantity',{}).get('unit')=='g':
+    if e.get('source',{}).get('provider')=='BLS' and e.get('food',{}).get('bls_code') and (e.get('quantity') or {}).get('unit')=='g':
         for key,raw in e['food'].get('nutrients',{}).items():
             if key not in values:
                 if isinstance(raw,(int,float)) and not isinstance(raw,bool) and math.isfinite(raw) and raw>=0:

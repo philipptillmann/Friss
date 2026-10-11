@@ -15,3 +15,5 @@
 .entryActions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}.danger{color:#a23f30;border-color:#e2c5bf;font-size:13px}.entry>div:first-child{min-width:0;overflow-wrap:anywhere}.entry>.entryActions{flex-shrink:0}@media(max-width:450px){.entry>.entryActions{flex-direction:column;align-items:flex-end}}
 
 .goalGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:24px}.goalCard{background:#eff2e9;border-radius:14px;padding:16px}.goalCard p{font-size:14px;margin:10px 0}.goalCard progress{display:block;width:100%;height:12px;accent-color:#294f3d}.goalCard small{display:block;font-size:12px;margin-top:10px}.healthDay{border-bottom:1px solid #e0e7dd;padding:20px 0}@media(max-width:360px){.goalGrid{grid-template-columns:1fr}}
+
+.entryLink{display:block;text-decoration:none;color:inherit;flex:1;min-width:0}.entryLink:hover strong{text-decoration:underline}#detailMetadata dd{overflow-wrap:anywhere}#detailTimeForm{margin-bottom:24px}

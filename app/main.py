@@ -67,7 +67,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.9.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.10.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -247,6 +247,32 @@ async def delete_entry(id: UUID):
 @app.get('/entries/{id}', dependencies=[Depends(auth)])
 async def get_entry(id: UUID):
     return load_entry(id)
+
+@app.get('/entries/{id}/details', dependencies=[Depends(auth)])
+async def entry_details(id: UUID):
+    e=load_entry(id)
+    return {**e,'contributions':home.nutrient_values(e)}
+
+class EntryTime(BaseModel):
+    timestamp: datetime
+    @model_validator(mode='after')
+    def aware(self):
+        if self.timestamp.utcoffset() is None:
+            raise ValueError('Timezone required')
+        return self
+
+@app.patch('/entries/{id}/time', dependencies=[Depends(auth)])
+async def edit_entry_time(id: UUID, body: EntryTime):
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row=c.execute('SELECT payload FROM entries WHERE id=?',(str(id),)).fetchone()
+        if not row: raise HTTPException(404,'Entry not found')
+        e=json.loads(row['payload'])
+        if e['timestamp']!=body.timestamp.isoformat():
+            e.setdefault('original_timestamp',e['timestamp'])
+            e.update(timestamp=body.timestamp.isoformat(),revision=e.get('revision',1)+1)
+            c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
+    return e
 
 class Resolution(BaseModel):
     bls_code: str
