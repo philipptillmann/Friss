@@ -34,7 +34,7 @@ class BACProfile(BaseModel):
 
 class Preferences(BaseModel):
     version: int = Field(ge=0)
-    buttons: list[QuickButton] = Field(max_length=40)
+    buttons: list[QuickButton]
     bac: BACProfile | None = None
 
     @model_validator(mode='after')

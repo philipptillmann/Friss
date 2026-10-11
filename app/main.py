@@ -66,7 +66,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.7.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.7.1', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
