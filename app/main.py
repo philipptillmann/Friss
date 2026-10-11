@@ -47,6 +47,7 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS foods(code TEXT PRIMARY KEY, payload TEXT NOT NULL, search TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS preferences(id INTEGER PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS button_images(id TEXT PRIMARY KEY, content BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS favorites(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS health_days(id TEXT PRIMARY KEY, day TEXT NOT NULL, timezone TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(day,timezone));
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
@@ -67,7 +68,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.10.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.11.0', lifespan=lifespan)
 
 # Only unambiguous legacy macronutrient units. Micronutrients await source-unit confirmation.
 BLS_UNITS = {k:'g' for k in ['dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryFatSaturated','dietaryProtein']}
@@ -87,6 +88,7 @@ class Entry(BaseModel):
     barcode: str | None = Field(default=None, pattern=r'^\d{8,14}$')
     bls_code: str | None = None
     filename: str | None = None
+    capture_method: Literal['recent','favorite'] | None = None
     recipe_id: UUID | None = None
     drink: Literal['water','coffee','alcohol'] | None = None
     caffeine_mg: float | None = Field(default=None, ge=0, allow_inf_nan=False)
@@ -539,3 +541,6 @@ health_days.install(app, db, auth)
 
 from . import barcode_scan
 barcode_scan.install(app, auth)
+
+from . import favorites
+favorites.install(app, db, auth, Entry)

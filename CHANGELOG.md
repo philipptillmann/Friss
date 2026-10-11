@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.11.0
+
+Zuletzt benutzte Lebensmittel aus Tagebuch und Rezeptzutaten mit Deduplizierung und Vorschlagsmengen. Separate Favoritenseite zum Anlegen, Bearbeiten, Löschen und Verwenden; persistente Vorlagen ohne Health-Status. Auswahl füllt die bestehende Erfassungsmaske, ohne automatisch zu buchen.
+
 ## 1.10.0
 
 Rezeptverzehr als Erfassungsoption statt separatem Mahlzeitenpanel. Anklickbare Tagebucheinträge mit Detailseite für Metadaten, Herkunft, Health-Status und sämtliche Mengenbeiträge. Zeitpunkt bearbeitbar, Originaldateien und Nährwert-Momentaufnahmen bleiben erhalten; betroffene Health-Tagesexporte werden als geändert markiert.

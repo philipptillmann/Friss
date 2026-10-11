@@ -217,3 +217,13 @@ Auch bei Rezeptzutaten und Barcode-Presets unter Einstellungen verfügbar. Keine
 Ein Tagebucheintrag öffnet seine Detailseite. Sie zeigt Name, Zeitpunkt, Menge, Erfassungsmethode, Datenquelle, Barcode (falls vorhanden), Eintrags-ID, Verarbeitung und Health-Status sowie alle Nährstoffbeiträge der eingetragenen Menge. Ungeprüfte BLS-Quelleinheiten und TR bleiben gekennzeichnet. Bei Rezeptverzehr werden die gespeicherten Momentaufnahmen verwendet.
 
 Zeitpunktänderungen ändern ausschließlich Zeitpunkt/Revision im Tagebuch, keine Nährwerte oder Originaldateien. Ein Wechsel des Datums verschiebt den Beitrag zum neuen Tag. Bereits exportierte Health-Daten werden nicht geändert; betroffene Tagesexporte erscheinen als geändert. GET /entries/{id}/details liefert die Detaildaten, PATCH /entries/{id}/time akzeptiert einen zeitzonenbehafteten timestamp.
+
+## Zuletzt benutzt und Favoriten (1.11.0)
+
+Im Eingabebereich „Zuletzt benutzt“ oder „Favoriten“ öffnen. Ein Treffer füllt die Erfassungsmaske mit Lebensmittel und Vorschlagsmenge. Zeitpunkt und Menge prüfen und anschließend speichern. Jeder Verzehr ist ein neuer Eintrag mit eigener ID und eigenem Health-Status. Dieselben Auswahlhilfen stehen bei Rezeptzutaten bereit.
+
+„Zuletzt benutzt“ zeigt die letzten 100 unterschiedlichen wiederverwendbaren Lebensmittel aus Tagebuch und Rezeptzutaten, in Reihenfolge der Anlage, unabhängig vom ausgewählten Tagebuchtag. Gleiche BLS-Codes und Barcodes werden zusammengefasst. Getränke und Texte sind ebenfalls wiederverwendbar. Aufgelöste Fotoeinträge werden als zugeordnetes Lebensmittel übernommen. Fotos ohne Lebensmittelzuordnung und ganze Rezeptverzehre werden ausgeschlossen; ganze Rezepte weiterhin über „Rezept essen“ buchen.
+
+Die Favoritenseite bietet Anlegen über Lebensmittelsuche, Barcode, Text oder Getränke sowie Übernahme aus zuletzt benutzten Lebensmitteln. Name, Zuordnung und Vorschlagsmenge sind editierbar. Favoriten liegen in SQLite, bleiben nach Neustart erhalten und werden vom vorhandenen Backup erfasst. Änderungen/Löschen wirken nur auf Vorlagen, nicht auf bestehende Mahlzeiten, Rezepte oder Health-Daten. Löschen fragt nach Bestätigung. Gleichzeitige Änderungen werden über eine Versionsnummer abgefangen.
+
+API: GET /recent-ingredients?limit=100 (maximal 200), GET/POST /favorites, PUT /favorites/{id}, DELETE /favorites/{id}?version=N. Alle Endpunkte benötigen Authentifizierung. Vorlagen enthalten weder Verbrauchszeitpunkt noch recipe_id oder Health-Status.
