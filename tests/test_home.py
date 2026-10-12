@@ -27,6 +27,19 @@ class HomeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.put('/settings',json=invalid)).status_code,422)
         self.assertEqual((await self.client.get('/settings',headers={'Authorization':'bad'})).status_code,401)
 
+    async def test_goals_persist_across_other_settings_and_restart(self):
+        prefs=(await self.client.get('/settings')).json()
+        prefs['goals']={'energy_kcal':2000,'protein_g':120,'carbohydrates_g':None,'fat_g':65}
+        saved=(await self.client.put('/settings',json=prefs)).json()
+        self.assertEqual(saved['goals'],prefs['goals'])
+        saved['buttons'][0]['label']='Glass of water'
+        updated=(await self.client.put('/settings',json=saved)).json()
+        self.assertEqual(updated['goals'],prefs['goals'])
+        await self.life.__aexit__(None,None,None)
+        self.life=support.main.lifespan(support.main.app)
+        await self.life.__aenter__()
+        self.assertEqual((await self.client.get('/settings')).json()['goals'],prefs['goals'])
+
     async def test_image_upload_auth_and_delete(self):
         s=(await self.client.get('/settings')).json();id=s['buttons'][0]['id'];url='/quick-buttons/'+id+'/image'
         self.assertEqual((await self.client.put(url,content=b'invalid')).status_code,422)

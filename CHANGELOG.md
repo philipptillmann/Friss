@@ -1,3 +1,9 @@
+## 1.13.2 — Tagesziele auf Home
+
+- Ein verspäteter Home-Abruf kann frisch gespeicherte Kalorien- und Makroziele nicht mehr durch alte Einstellungen ersetzen.
+- Veraltete Abrufe nach Abmeldung werden verworfen.
+- Regressionstest für Ziel speichern → verspäteter Abruf → Fortschrittsanzeige und API-Prüfung der Speicherung über Neustarts.
+
 ## 1.13.1 — Bestätigte BLS-4.0-Einheiten
 
 - Originaltabelle bestätigt Einheiten und alle Werte pro 100 g; Mikronährstoffe werden berechnet und sind für Health verfügbar.
