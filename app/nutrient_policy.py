@@ -1,9 +1,10 @@
 """Reversible, opt-in interpretation of blank nutrient values as zero.
 
-Source payloads are never changed. Unknown quantities / food identities, trace
-qualifiers and nonempty values with unverified units are not replaced.
+Source payloads are never changed. The opt-in includes trace / detection-limit
+qualifiers. Unknown food identities, amounts and unverified numeric units remain.
 """
 import json
+import re
 from .bls_units import UNITS
 
 ZERO_UNITS={**UNITS,'dietarySelenium':'mcg','dietaryCaffeine':'mg'}
@@ -21,11 +22,20 @@ def ready(e):
     q=e.get('quantity') or {}
     return e.get('status')=='needs_review' and q.get('unit')=='g' and q.get('value',0)>0 and bool(e.get('food')) and e.get('source',{}).get('provider') in ('BLS','Manual','Open Food Facts')
 
+def assumable_qualifier(value):
+    if value is None:return True
+    if not isinstance(value,str):return False
+    value=''.join(value.upper().split())
+    if not value:return True
+    token=r'(?:TR|TRACE|TRACES|SPUR|SPUREN|(?:<=|<|≤)?(?:LOD|LOQ))'
+    return bool(re.fullmatch(token+r'(?:(?:OR|ODER|AND|UND|/|,|;)'+token+r')*',value))
+
+
 def fill(values,water_unit='g'):
     result={k:dict(v) for k,v in values.items()}
     for key,unit in ZERO_UNITS.items():
         old=result.get(key)
-        if old is None or old.get('value') is None and old.get('qualifier') in (None,''):
+        if old is None or old.get('value') is None and assumable_qualifier(old.get('qualifier')):
             result[key]={'value':0,'unit':water_unit if key=='dietaryWater' else unit,'assumed':True}
     return result
 

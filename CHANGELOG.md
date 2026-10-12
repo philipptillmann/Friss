@@ -1,3 +1,9 @@
+## 1.16.1 — Nullannahmen auch für Spuren und Nachweisgrenzen
+
+- Die aktivierte Null-Einstellung erfasst nun auch TR, <LOD, <LOQ und kombinierte Angaben wie „<LOD or <LOQ“.
+- Summen und Rezeptanteile behalten bekannte Nährwerte; für die ersetzten Angaben entfallen „unvollständig“ und die Grenzmarker.
+- Ausschalten stellt die Originalangaben wieder her. Numerische Werte mit ungeprüften Einheiten werden weiterhin nicht verändert.
+
 ## 1.16.0 — Option für fehlende Nährwerte
 
 - Neue, standardmäßig ausgeschaltete Einstellung: fehlende Nährwerte bei der Auswertung als 0 annehmen.

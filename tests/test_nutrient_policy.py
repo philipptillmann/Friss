@@ -105,12 +105,27 @@ class MissingNutrientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(unknown['status'],'needs_review');self.assertEqual(unknown['nutrients'],{})
 
 class MissingPolicyUnitTests(unittest.TestCase):
-    def test_trace_and_unverified_numeric_values_remain_visible(self):
+    def test_trace_becomes_assumed_zero_but_unverified_numeric_values_remain_visible(self):
         e={'type':'item','status':'processed','quantity':{'value':100,'unit':'g'},'source':{'provider':'BLS'},'food':{'bls_code':'X','nutrients':{'dietaryVitaminC':'TR','dietarySelenium':3,'dietaryProtein':None}},'nutrients':{}}
         values=home.nutrient_values(e,True)
-        self.assertIsNone(values['dietaryVitaminC']['value']);self.assertEqual(values['dietaryVitaminC']['qualifier'],'TR')
+        self.assertEqual(values['dietaryVitaminC']['value'],0);self.assertTrue(values['dietaryVitaminC']['assumed'])
+        self.assertEqual(home.nutrient_values(e,False)['dietaryVitaminC']['qualifier'],'TR')
         self.assertEqual(values['dietarySelenium']['value'],3);self.assertIsNone(values['dietarySelenium']['unit'])
         self.assertEqual(values['dietaryProtein']['value'],0)
         off={**e,'source':{'provider':'Open Food Facts'},'food':{'nutriments':{'fiber_100g':'TR','proteins_100g':''}}}
         values=home.nutrient_values(off,True)
-        self.assertEqual(values['dietaryFiber']['qualifier'],'TR');self.assertEqual(values['dietaryProtein']['value'],0)
+        self.assertEqual(values['dietaryFiber']['value'],0);self.assertTrue(values['dietaryFiber']['assumed']);self.assertEqual(values['dietaryProtein']['value'],0)
+
+    def test_detection_limits_and_recipe_sums_are_complete_only_when_enabled(self):
+        for marker in ['<LOD','<LOQ','<LOD or <LOQ','<LOD / <LOQ',' TR ','≤ LOQ','<LOD oder <LOQ']:
+            empty={'type':'item','status':'processed','quantity':{'value':100,'unit':'g'},'source':{'provider':'BLS'},'food':{'bls_code':'X','nutrients':{'dietaryCalcium':marker}},'nutrients':{}}
+            known={'type':'manual','status':'processed','quantity':{'value':100,'unit':'g'},'nutrients':{'dietaryCalcium':{'value':100,'unit':'mg'}}}
+            before={n['key']:n for n in home.summarize([known,empty],False)['nutrients']}
+            after={n['key']:n for n in home.summarize([known,empty],True)['nutrients']}
+            self.assertTrue(before['dietaryCalcium']['partial']);self.assertEqual(before['dietaryCalcium']['qualifiers'],[marker])
+            self.assertFalse(after['dietaryCalcium']['partial']);self.assertEqual(after['dietaryCalcium']['qualifiers'],[])
+            self.assertAlmostEqual(after['dietaryCalcium']['values'][0]['value'],.1)
+            recipe={'type':'recipe','status':'processed','quantity':{'value':.5,'unit':'fraction'},'nutrients':{},'recipe_snapshot':{'ingredients':[known,empty]}}
+            value=home.nutrient_values(recipe,True)['dietaryCalcium']
+            self.assertEqual(value['value'],50);self.assertTrue(value['assumed'])
+        for bad in ['Incompatible nutrient units','UNKNOWN','source value or unit unresolved',3]:self.assertFalse(nutrient_policy.assumable_qualifier(bad))
