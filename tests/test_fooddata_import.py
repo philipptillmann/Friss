@@ -22,6 +22,10 @@ class FooddataParserTests(unittest.TestCase):
         self.assertEqual(n['dietarySelenium'],{'value':3.1,'unit':'mcg'})
         self.assertEqual(n['dietaryVitaminB12'],{'value':0,'unit':'mcg'})
         self.assertEqual(n['dietaryWater'],{'value':10.58,'unit':'g'})
+        self.assertEqual(n['dietaryCarbohydrates']['value'],27.49)
+        self.assertEqual(n['dietaryFiber']['value'],53.1)
+        self.assertEqual(data['source']['carbohydrate_conversion']['status'],'converted')
+        self.assertEqual(next(v for v in data['source']['values'] if v['name']=='Carbohydrate, by difference')['value'],80.59)
         self.assertEqual(n['dietaryFolate']['value'],6) # Not 18 by adding food + DFE.
         self.assertEqual(n['dietaryVitaminA']['value'],15) # Not beta-carotene.
         self.assertNotIn('dietaryCholesterol',n) # Not published in this payload.
@@ -40,6 +44,18 @@ class FooddataParserTests(unittest.TestCase):
         self.assertAlmostEqual(importer.parse(page([('Energy',418.4,'KJ')]),URL)['nutrients']['dietaryEnergyConsumed']['value'],100)
         with self.assertRaises(HTTPException):importer.parse(page([('Protein',2,'G')],basis='per serving'),URL)
         with self.assertRaises(HTTPException):importer.parse(page([('Protein',2,'G'),('Protein',3,'G')]),URL)
+
+    def test_eu_carbs_missing_zero_and_inconsistent_fibre(self):
+        for fibre,expected,status in [(None,None,'missing_fibre'),('TR',None,'missing_fibre'),(0,10,'converted'),(10,0,'converted'),(11,None,'invalid_fibre')]:
+            rows=[('Energy',100,'KCAL'),('Carbohydrate, by difference',10,'G')]
+            if fibre is not None:rows.append(('Fiber, total dietary',fibre,'G'))
+            result=importer.parse(page(rows),URL)
+            self.assertEqual(result['source']['carbohydrate_conversion']['status'],status)
+            if expected is None:self.assertNotIn('dietaryCarbohydrates',result['nutrients'])
+            else:self.assertEqual(result['nutrients']['dietaryCarbohydrates']['value'],expected)
+            self.assertEqual(result['nutrients']['dietaryEnergyConsumed']['value'],100)
+        result=importer.parse(page([('Energy',100,'KCAL'),('Carbohydrate, by difference',10000,'MG'),('Fiber, total dietary',2000000,'UG')]),URL)
+        self.assertEqual(result['nutrients']['dietaryCarbohydrates'],{'value':8,'unit':'g'})
 
     def test_table_only_and_url_restrictions(self):
         html='<h1>Table food</h1><table><tr><th>Nutrient</th><th>Value / 100g</th><th>Unit</th></tr><tr><td>Calcium, Ca</td><td>1,002</td><td>MG</td></tr><tr><td>Protein</td><td>0</td><td>G</td></tr></table>'
@@ -66,6 +82,7 @@ class FooddataImportApiTests(unittest.IsolatedAsyncioTestCase):
         ingredient.update(id=str(uuid4()),version=0)
         saved=(await self.client.post('/manual-ingredients',json=ingredient)).json()
         self.assertEqual(saved['source']['url'],URL)
+        self.assertEqual(saved['source']['carbohydrate_conversion']['status'],'converted')
         entry=(await self.client.post('/entries',json=self.payload(type='manual',drink=None,manual_id=ingredient['id'],quantity={'value':5,'unit':'g'}))).json()
         self.assertAlmostEqual(entry['nutrients']['dietaryEnergyConsumed']['value'],12.35)
         self.assertEqual(entry['nutrients']['dietaryWater']['unit'],'g')

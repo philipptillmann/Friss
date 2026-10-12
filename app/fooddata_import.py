@@ -8,6 +8,7 @@ import json
 import math
 import re
 from datetime import datetime, timezone
+from decimal import Decimal
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
@@ -138,6 +139,25 @@ def convert(value,unit,target,key):
     raise ValueError()
 
 
+def european_carbohydrates(nutrients):
+    """USDA by-difference total minus known dietary fibre; never assume zero."""
+    total=nutrients.get('dietaryCarbohydrates')
+    if total is None:return None
+    fibre=nutrients.get('dietaryFiber')
+    info={'method':'us_total_minus_fibre','total_g':total['value'],'fibre_g':fibre['value'] if fibre else None,'result_g':None}
+    if fibre is None:
+        info['status']='missing_fibre'
+        nutrients.pop('dietaryCarbohydrates')
+    elif fibre['value']>total['value']+1e-8:
+        info['status']='invalid_fibre'
+        nutrients.pop('dietaryCarbohydrates')
+    else:
+        info['status']='converted'
+        info['result_g']=max(0,float(Decimal(str(total['value']))-Decimal(str(fibre['value']))))
+        nutrients['dietaryCarbohydrates']={'value':info['result_g'],'unit':'g'}
+    return info
+
+
 def parse(html,url):
     page=Page();page.feed(html)
     candidates=[]
@@ -199,13 +219,17 @@ def parse(html,url):
                 warnings.append('Alternate value not combined: '+str(row['name']))
             continue
         nutrients[identifier]={'value':value,'unit':target}
+    carbohydrate_conversion=european_carbohydrates(nutrients)
     if not nutrients and ethanol is None:raise HTTPException(422,'No supported nutrients with known units found')
     if 'dietaryWater' in nutrients:warnings.append('Food water is imported as grams, not as a drinking-water volume.')
-    if any(normalized(r['name'])=='carbohydrate, by difference' for r in rows):warnings.append('USDA carbohydrates by difference include fibre; BLS available carbohydrates use a different definition.')
+    if carbohydrate_conversion:
+        c=carbohydrate_conversion
+        if c['status']=='converted':warnings.append(f"Carbohydrates excluding fibre: {c['total_g']:g} g USDA total - {c['fibre_g']:g} g fibre = {c['result_g']:g} g per 100 g. Fibre and source energy are unchanged.")
+        else:warnings.append('Carbohydrates left unknown: fibre is missing or greater than USDA total; no subtraction can be confirmed.')
     warnings.append('Only published, supported values are imported. Missing nutrients are not inferred as zero.')
     notes='Imported from FoodData Explorer / USDA\nSource: '+url+'\nBasis: per 100 g\n'+'\n'.join(warnings)
     return {'name_de':name,'name_en':name,'notes':notes,'nutrients':nutrients,'ethanol_g_per100':ethanol,
-            'source':{'provider':'FoodData Explorer','url':url,'imported_at':datetime.now(timezone.utc).isoformat(),'basis_g':100,'values':original},
+            'source':{'provider':'FoodData Explorer','url':url,'imported_at':datetime.now(timezone.utc).isoformat(),'basis_g':100,'values':original,'carbohydrate_conversion':carbohydrate_conversion},
             'warnings':warnings,'skipped':skipped}
 
 

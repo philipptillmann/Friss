@@ -18,12 +18,20 @@ class SourceValue(BaseModel):
     value:float|str|None
     unit:str=Field(max_length=32)
 
+class CarbohydrateConversion(BaseModel):
+    method:Literal['us_total_minus_fibre']
+    status:Literal['converted','missing_fibre','invalid_fibre']
+    total_g:float=Field(ge=0,allow_inf_nan=False)
+    fibre_g:float|None=Field(default=None,ge=0,allow_inf_nan=False)
+    result_g:float|None=Field(default=None,ge=0,allow_inf_nan=False)
+
 class ImportSource(BaseModel):
     provider:Literal['FoodData Explorer']
     url:str=Field(max_length=2000)
     imported_at:datetime
     basis_g:Literal[100]
     values:list[SourceValue]=Field(max_length=1000)
+    carbohydrate_conversion:CarbohydrateConversion|None=None
     @model_validator(mode='after')
     def valid(self):
         self.url=fooddata_import.canonical_url(self.url)

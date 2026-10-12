@@ -3,9 +3,9 @@ const elements=new Map(),listeners={},events={};
 function element(){const e={value:'',hidden:false,disabled:false,children:[],dataset:{},textContent:'',append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=[...nodes]},setAttribute(){},reset(){},focus(){},scrollIntoView(){},addEventListener(name,fn){events[name]=fn}};Object.defineProperty(e,'id',{set(id){elements.set(id,e)}});Object.defineProperty(e,'options',{get(){return e.children}});return e}
 const $=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id)};
 $('dashboard').hidden=true;
-const schema=[{key:'dietaryEnergyConsumed',unit:'kcal',units:['kcal']},{key:'dietaryWater',unit:'ml',units:['ml','g']},{key:'dietarySelenium',unit:'mcg',units:['g','mg','mcg']}];
-const source={provider:'FoodData Explorer',url:'https://fooddata.the50.store/ingredients/2010-spices-cinnamon-ground',basis_g:100,imported_at:'2026-10-12T00:00:00+00:00',values:[]};
-const imported={name_de:'Spices, cinnamon, ground',name_en:'Spices, cinnamon, ground',notes:'Source: '+source.url,nutrients:{dietaryEnergyConsumed:{value:247,unit:'kcal'},dietaryWater:{value:10.58,unit:'g'}},source,skipped:[],ethanol_g_per100:null};
+const schema=[{key:'dietaryCarbohydrates',unit:'g',units:['g','mg','mcg']},{key:'dietaryEnergyConsumed',unit:'kcal',units:['kcal']},{key:'dietaryWater',unit:'ml',units:['ml','g']},{key:'dietarySelenium',unit:'mcg',units:['g','mg','mcg']}];
+const source={provider:'FoodData Explorer',url:'https://fooddata.the50.store/ingredients/2010-spices-cinnamon-ground',basis_g:100,carbohydrate_conversion:{status:'converted',method:'us_total_minus_fibre',total_g:80.59,fibre_g:53.1,result_g:27.49},imported_at:'2026-10-12T00:00:00+00:00',values:[]};
+const imported={name_de:'Spices, cinnamon, ground',name_en:'Spices, cinnamon, ground',notes:'Source: '+source.url,nutrients:{dietaryCarbohydrates:{value:27.49,unit:'g'},dietaryEnergyConsumed:{value:247,unit:'kcal'},dietaryWater:{value:10.58,unit:'g'}},source,skipped:[],ethanol_g_per100:null};
 let posts=[],deferred=null;
 const api=async(path,options)=>{if(path==='/manual-ingredients/import'){if(deferred)return new Promise(resolve=>deferred.resolve=()=>resolve(imported));return imported}if(options?.method==='POST'){posts.push(JSON.parse(options.body));return {}}if(path.endsWith('/schema'))return schema;return []};
 const context=vm.createContext({$,words:{de:{},en:{}},lang:'de',t:k=>k,document:{createElement:element,documentElement:{},querySelectorAll:()=>[]},window:{addEventListener(name,fn){listeners[name]=fn}},MutationObserver:class {observe(){}},editing:null,standardKeys:['dietaryEnergyConsumed'],nutrientLabel:k=>k,formatHome:String,translate(){},message(){},confirm:()=>true,uuid:()=> 'new-id',api});
@@ -19,7 +19,7 @@ vm.runInContext(fs.readFileSync('app/static/manual-ingredients.js','utf8'),conte
  assert.equal($('manualValue-dietarySelenium').value,'','missing nutrient must stay empty');
  assert.equal(vm.runInContext('manualEditing',context),null,'import must create a new ingredient');
  await $('manualForm').onsubmit({preventDefault(){}});
- assert.equal(posts[0].id,'new-id');assert.equal(posts[0].source.url,source.url);assert.equal(posts[0].nutrients.dietaryWater.unit,'g');assert.equal(posts[0].nutrients.dietarySelenium,undefined);
+ assert.equal(posts[0].nutrients.dietaryCarbohydrates.value,27.49);assert.equal(posts[0].source.carbohydrate_conversion.status,'converted');assert.equal(posts[0].id,'new-id');assert.equal(posts[0].source.url,source.url);assert.equal(posts[0].nutrients.dietaryWater.unit,'g');assert.equal(posts[0].nutrients.dietarySelenium,undefined);
  deferred={};const pending=$('manualImportForm').onsubmit({preventDefault(){}});
  $('manualNameDe').value='Keep my edit';events.input();deferred.resolve();await pending;
  assert.equal($('manualNameDe').value,'Keep my edit','late import must not overwrite newer edits');

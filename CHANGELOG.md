@@ -1,3 +1,9 @@
+## 1.15.1 — Amerikanische Kohlenhydrate ohne Ballaststoffe
+
+- FoodData-Import zieht bekannte Ballaststoffe von USDA-Gesamtkohlenhydraten ab. Zimt: 80,59 − 53,1 = 27,49 g pro 100 g.
+- Ballaststoffe und Quellenergie bleiben unverändert; Originalwerte und Umrechnung werden gespeichert.
+- Fehlende oder widersprüchliche Ballaststoffangaben ergeben keinen geratenen Kohlenhydratwert. Bestehende Zutaten lassen sich erneut importieren; gebuchte Snapshots bleiben unverändert.
+
 ## 1.15.0 — FoodData-Importer für eigene Zutaten
 
 - Import per FoodData Explorer-Link: Nährwerte pro 100 g automatisch in die manuelle Eingabemaske übernehmen, vor dem Speichern prüfen und bearbeiten.
