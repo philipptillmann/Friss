@@ -135,7 +135,21 @@ Das Icon ist als `app/static/icon-192.png` und `icon-512.png` enthalten, verbund
 
 Im Dashboard ein Rezept mit Name und Gesamt-Portionszahl speichern. Für Gramm-Verzehr zusätzlich das **fertige** Gesamtgewicht angeben, z.B. nach dem Kochen 1.200 g. In der normalen Erfassung unter „Speichern in“ das Rezept wählen: Lebensmittel-Suche, Text, Barcode, Foto und Getränke stehen wie im Tagebuch zur Verfügung. Zutaten erscheinen mit dem ausgewählten Rezept in der Eintragsliste; ungeklärte Zutaten können dort zugeordnet werden. Zutaten werden nicht separat als Tagesverzehr oder nach Health exportiert. Fotos benötigen wie bisher eine manuelle Zuordnung.
 
-Verzehr buchen als Portionen (1 von z.B. 4 Portionen = 1/4 des Rezepts), als Bruchteil (0,25 = 1/4) oder in Gramm (150 g eines 600-g-Rezepts = 1/4). Datum und Uhrzeit können gewählt werden. Fehlende Mengen oder Zuordnungen blockieren die Berechnung. Fehlende Nährstoffe werden nicht als Null geraten: nur Nährstoffe, die alle Zutaten liefern, erhalten einen Rezept-Gesamtwert. Kochverluste werden nicht berechnet. Rezepte mit bestätigten BLS-Einheiten können nach Health exportiert werden; nicht prüfbare Alt-Einträge bleiben gesperrt.
+Verzehr buchen als Portionen (1 von z.B. 4 Portionen = 1/4 des Rezepts), als Bruchteil (0,25 = 1/4) oder in Gramm (150 g eines 600-g-Rezepts = 1/4). Datum und Uhrzeit können gewählt werden. Fehlende Mengen oder Zuordnungen blockieren die Berechnung. Standardmäßig bleiben fehlende Nährstoffe unbekannt: nur Nährstoffe, die alle Zutaten liefern, erhalten einen Rezept-Gesamtwert. Mit der Einstellung „Fehlende Nährwerte als 0 behandeln“ werden fehlende Angaben als Null angenommen; bekannte Beiträge anderer Zutaten werden weiterhin mitgerechnet. Kochverluste werden nicht berechnet. Rezepte mit bestätigten BLS-Einheiten können nach Health exportiert werden; nicht prüfbare Alt-Einträge bleiben gesperrt.
+
+### Gesamtgewicht und Portionsberechnung
+
+Das Gesamtgewicht ist das Gewicht des **fertigen Rezepts**, beispielsweise nach dem Kochen. Es wird für Einträge in Gramm verwendet; die Summe der Zutatengewichte wird dafür nicht automatisch herangezogen.
+
+- **In Gramm eintragen:** verzehrte Gramm ÷ fertiges Gesamtgewicht = Anteil der Rezeptnährwerte.
+- **In Portionen eintragen:** verzehrte Portionen ÷ festgelegte Gesamt-Portionszahl = Anteil der Rezeptnährwerte. Diese Berechnung funktioniert auch ohne Gesamtgewicht.
+- **Als Anteil eintragen:** z.B. 0,25 für ein Viertel des ganzen Rezepts. Auch dafür ist kein Gesamtgewicht erforderlich.
+
+**Beispiel:** Ein fertiges Rezept wiegt 800 g und hat 4 Portionen. Sowohl 200 g als auch 1 Portion beziehungsweise ein Anteil von 0,25 ergeben jeweils 25 % der gesamten Rezeptnährwerte. Das rechnerische Durchschnittsgewicht einer Portion beträgt hier 200 g.
+
+**Ohne Gesamtgewicht** sind Portionen und Anteile weiterhin möglich. Gramm-Verzehr ist erst möglich, wenn du das fertige Gesamtgewicht ergänzt hast. Friss schätzt dieses Gewicht nicht aus den Zutaten: Beim Kochen kann Wasser verdampfen oder aufgenommen werden.
+
+Die gesamten Nährwerte stammen weiterhin aus den Zutaten und zusätzlichen Rezeptangaben. Das fertige Gewicht bestimmt bei Gramm-Verzehr lediglich den verzehrten Anteil; Nährstoffverluste durch das Kochen werden nicht automatisch berechnet. Spätere Änderungen am Gesamtgewicht oder an der Portionszahl verändern bereits gebuchte Einträge nicht.
 
 Jeder gebuchte Verzehr enthält einen Rezept-Snapshot. Spätere Änderungen an Rezeptname, Portionen, Gewicht oder Zutaten verändern keine alten Tagebucheinträge. Wiederholte Übertragung mit derselben UUID erzeugt keinen doppelten Verzehr.
 
