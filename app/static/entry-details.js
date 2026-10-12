@@ -25,7 +25,7 @@ function renderEntryDetails(setTime=false){
  $('detailHealthHint').textContent=t('detailTimeHint');
  $('detailNutrients').replaceChildren();
  for(const [key,n] of Object.entries(e.contributions||{}).sort(([a],[b])=>a.localeCompare(b))){
- const text=n.value==null?(n.qualifier==null?t('entryUnknown'):String(n.qualifier)):formatHome(n.value)+' '+(n.unit||t('sourceUnits'));
+ const text=n.value==null?(n.qualifier==null?t('entryUnknown'):String(n.qualifier)):formatHome(n.value)+' '+(n.unit==='mcg'?'µg':n.unit||t('sourceUnits'));
  tableRow($('detailNutrients'),nutrientLabel(key),text);
  }
  if(e.drinking_water_ml!=null)tableRow($('detailNutrients'),t('detailWater'),formatHome(e.drinking_water_ml)+' ml');

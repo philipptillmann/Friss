@@ -1,13 +1,13 @@
 # JSON aus ChatGPT importieren
 
-Friss kann Ergebnisse aus der ChatGPT-App oder einem anderen Programm einlesen. Es gibt keine KI-Verbindung von Friss und keinen API-Schlüssel für diesen Import. Lebensmittel und Mengen stammen aus deinem JSON; die Nährwerte berechnet Friss aus den von dir gewählten BLS-Datensätzen oder eigenen Zutaten. KI-generierte Nährwerttabellen werden nicht übernommen.
+Friss kann Ergebnisse aus der ChatGPT-App oder einem anderen Programm einlesen. Es gibt keine KI-Verbindung von Friss und keinen API-Schlüssel für diesen Import. Lebensmittel, Mengen und optional Nährwerte stammen aus deinem JSON. In der Vorschau kannst du die ChatGPT-Nährwerte übernehmen oder stattdessen einen Datenbanktreffer wählen.
 
 ## So funktioniert es
 
 1. Unter **Mahlzeiten → Eintrag hinzufügen → JSON aus ChatGPT importieren** die **ChatGPT-Vorlage kopieren**. Auf der Rezeptseite ist derselbe Import für Zutaten verfügbar.
 2. Die Vorlage zusammen mit deinem Foto oder deiner Beschreibung in die ChatGPT-App einfügen.
 3. Das JSON-Ergebnis kopieren und in Friss einfügen, oder als `.json`-Datei hochladen.
-4. **Import prüfen** wählen. Es wurde noch nichts gebucht. Pro Lebensmittel einen BLS-Treffer oder eine eigene Zutat auswählen; Suchbegriff und Mengen bei Bedarf ändern.
+4. **Import prüfen** wählen. Es wurde noch nichts gebucht. Pro Lebensmittel importierte Nährwerte, einen BLS-Treffer oder eine eigene Zutat auswählen; Suchbegriff und Mengen bei Bedarf ändern.
 5. Zeitpunkt und Ziel prüfen, dann **Alle Einträge speichern**. Auf der Rezeptseite ist das aktuell ausgewählte Rezept das Ziel.
 
 Fotos erlauben häufig keine sichere Gewichtsbestimmung. Prüfe geschätzte Mengen und Hinweise. Nicht zugeordnete Lebensmittel oder unbekannte Mengen lassen sich trotzdem speichern; sie bleiben zur Nachbearbeitung erhalten. Friss wählt für nicht zugeordnete Importpositionen nicht eigenständig einen Datenbanktreffer.
@@ -62,3 +62,36 @@ Die Originaleingabe bleibt unverändert als `originals/import-<Import-ID>.txt` e
 - Authentifiziertes `POST /json-import/commit` mit neuer UUID als `id`, derselben `raw`-Eingabe, `timestamp`, optional `recipe_id` und der geprüften `items`-Liste speichert die Positionen gemeinsam. Bei Wiederholung dieselbe UUID und dieselben Daten verwenden.
 
 Der normale iPhone-Test erfolgt nach `./update.sh`. Friss analysiert selbst keine Fotos: Das Foto wird in deiner gewählten ChatGPT-App verarbeitet, und nur deren JSON-Ergebnis wird nach Friss übernommen.
+
+## Nährwerte direkt übernehmen
+
+Jede Position kann optional `nutrition` enthalten. In der Vorschau werden Basis, Schätzungskennzeichnung und Nährwerte als bearbeitbares JSON angezeigt. Die Auswahl **ChatGPT-Nährwerte übernehmen** verwendet diese Werte; die Auswahl eines Datenbanktreffers verwendet ausschließlich dessen Werte. Beides wird niemals addiert. Ein JSON-Datensatz darf deshalb nicht gleichzeitig `nutrition` und eine Datenbankreferenz enthalten.
+
+```json
+{
+  "schema": "friss-meal-v1",
+  "items": [{
+    "name": "Milch",
+    "quantity": {"value": 150, "unit": "ml"},
+    "notes": "Nährwerte von der Verpackung übernommen",
+    "nutrition": {
+      "basis": "100ml",
+      "estimated": false,
+      "nutrients": {
+        "dietaryEnergyConsumed": {"value": 64, "unit": "kcal"},
+        "dietaryProtein": {"value": 3.3, "unit": "g"},
+        "dietaryCarbohydrates": {"value": 4.8, "unit": "g"},
+        "dietaryFatTotal": {"value": 3.5, "unit": "g"}
+      }
+    }
+  }]
+}
+```
+
+`basis` muss `100g` oder `100ml` sein. Die konsumierte Menge braucht dieselbe Einheit: im Beispiel ergeben sich 96 kcal. Bei fehlender Menge bleibt der Eintrag zur Nachbearbeitung erhalten, ohne erneute Lebensmittelsuche. Es findet keine automatische Umrechnung zwischen Gramm und Millilitern statt.
+
+`nutrients` verwendet die HealthKit-Bezeichner aus der kopierbaren Vorlage. Energie in `kcal`, Wasser in `g` oder `ml`, andere Nährstoffe in `g`, `mg` oder `mcg`. `ug`, `µg` und `μg` werden beim Import ebenfalls als Mikrogramm akzeptiert. Zahlen müssen endlich und nicht negativ sein. Unbekannte Werte weglassen oder `null` setzen; die Nullwert-Einstellung gilt wie bisher.
+
+Kohlenhydrate müssen den europäischen verfügbaren Kohlenhydraten entsprechen, also ohne Ballaststoffe. Die Vorlage fordert das ausdrücklich an. Friss zieht von diesen importierten Werten nicht nochmals Ballaststoffe ab.
+
+`estimated` ist standardmäßig `true`: die Detailseite kennzeichnet solche Werte als externe KI-Schätzung. `false` ist für abgelesene Angaben vorgesehen. Friss prüft Struktur und Einheiten, nicht die tatsächliche Zusammensetzung eines Fotos. Die gespeicherten Nährwerte behalten ihre Importquelle und werden bei Rezeptverzehr als Snapshot übernommen; der bestehende Health-Export kann sie übertragen.

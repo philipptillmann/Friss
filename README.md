@@ -300,8 +300,8 @@ Auf Home auf einen Kalorien-, Makro-, Mikro-, Wasser-, Koffein- oder Alkoholmeng
 Die Daten kommen zusammen mit der Tagesübersicht aus `/home-summary`; Contributors verwenden dieselben Einheiten, Tagesgrenzen und Null-Einstellung wie die Summe. Bei Abmeldung schließt die Übersicht und verwirft ihre Inhalte. Tests prüfen die Übereinstimmung von Einzelbeiträgen und Summen, Rezeptzutaten-Ausschluss sowie Öffnen und Schließen der Übersicht.
 
 
-## JSON-Handoff aus ChatGPT (1.18.0)
+## JSON-Handoff aus ChatGPT (1.19.0)
 
-Unter Mahlzeiten oder bei Rezeptzutaten **JSON aus ChatGPT importieren** öffnen. Dort die kopierbare ChatGPT-Vorlage mit Foto oder Beschreibung in der ChatGPT-App verwenden, deren JSON als Text einfügen oder Datei hochladen, die Lebensmittel / Mengen prüfen und gemeinsam speichern. Friss führt keinen KI-Aufruf aus. Die Nährwerte kommen aus gewählten BLS-Datensätzen oder eigenen Zutaten; fehlende Zuordnungen bleiben nachbearbeitbar. Die Eingabe wird im Original erhalten, Wiederholungen sind durch die Import-ID gegen doppelte Buchung abgesichert.
+Unter Mahlzeiten oder bei Rezeptzutaten **JSON aus ChatGPT importieren** öffnen. Dort die kopierbare ChatGPT-Vorlage mit Foto oder Beschreibung in der ChatGPT-App verwenden, deren JSON als Text einfügen oder Datei hochladen, die Lebensmittel / Mengen prüfen und gemeinsam speichern. Friss führt keinen KI-Aufruf aus. Die Nährwerte können direkt aus der ChatGPT-Ausgabe übernommen und in der Vorschau korrigiert werden, oder aus gewählten BLS-Datensätzen / eigenen Zutaten kommen; fehlende Zuordnungen bleiben nachbearbeitbar. Die Eingabe wird im Original erhalten, Wiederholungen sind durch die Import-ID gegen doppelte Buchung abgesichert.
 
 Das vollständige Format `friss-meal-v1`, Beispiele, API und Nutzung sind in [JSON_IMPORT.md](docs/JSON_IMPORT.md) beschrieben. Eine [Beispieldatei](app/static/friss-meal-example.json) liegt ebenfalls bei. Mengen in Fotos als Schätzungen behandeln; ml nicht ohne bekannte Dichte zu g umdeuten. Der Import gilt für eine Mahlzeit beziehungsweise eine Zutatenliste mit einem gemeinsamen, bearbeitbaren Zeitpunkt.

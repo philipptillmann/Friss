@@ -2,7 +2,57 @@
   "schema": "friss-meal-v1",
   "title": "Cappuccino",
   "items": [
-    {"name": "Espresso", "quantity": {"value": 45, "unit": "g"}, "notes": "Menge angegeben"},
-    {"name": "Vollmilch 3,5 % Fett", "quantity": {"value": 90, "unit": "g"}, "notes": "Menge angegeben"}
+    {
+      "name": "Espresso",
+      "quantity": {
+        "value": 45,
+        "unit": "g"
+      },
+      "notes": "Menge angegeben",
+      "nutrition": {
+        "basis": "100g",
+        "estimated": true,
+        "nutrients": {
+          "dietaryEnergyConsumed": {
+            "value": 9,
+            "unit": "kcal"
+          },
+          "dietaryCaffeine": {
+            "value": 180,
+            "unit": "mg"
+          }
+        }
+      }
+    },
+    {
+      "name": "Vollmilch 3,5 % Fett",
+      "quantity": {
+        "value": 90,
+        "unit": "g"
+      },
+      "notes": "Menge angegeben",
+      "nutrition": {
+        "basis": "100g",
+        "estimated": true,
+        "nutrients": {
+          "dietaryEnergyConsumed": {
+            "value": 64,
+            "unit": "kcal"
+          },
+          "dietaryProtein": {
+            "value": 3.3,
+            "unit": "g"
+          },
+          "dietaryCarbohydrates": {
+            "value": 4.8,
+            "unit": "g"
+          },
+          "dietaryFatTotal": {
+            "value": 3.5,
+            "unit": "g"
+          }
+        }
+      }
+    }
   ]
 }

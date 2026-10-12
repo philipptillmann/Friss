@@ -1,3 +1,9 @@
+## 1.19.0 — ChatGPT-Nährwerte importieren
+
+- Optionale Nährwerte pro 100 g / 100 ml direkt übernehmen, in der Vorschau korrigieren oder durch Datenbankwerte ersetzen.
+- Schätzungen kennzeichnen, Originaldaten erhalten und fehlende Mengen ohne neue Lebensmittelsuche ergänzen.
+- DE/EN-Vorlage mit HealthKit-Feldern, europäischen Kohlenhydraten und klaren Einheiten.
+
 ## 1.18.1 — Nährwertanzeige
 
 - Angezeigte Zahlen mit maximal zwei Nachkommastellen, Mikrogramm als µg. Berechnung und gespeicherte Werte behalten ihre Genauigkeit.

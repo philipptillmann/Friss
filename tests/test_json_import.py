@@ -93,6 +93,41 @@ class JSONImportTests(unittest.IsolatedAsyncioTestCase):
         body['timestamp']='2026-10-12T18:00:00'
         self.assertEqual((await self.client.post('/json-import/commit',json=body)).status_code,422)
 
+    async def test_imported_nutrition_scaling_snapshot_retry_and_recipe(self):
+        item={'name':'AI milk','quantity':{'value':150,'unit':'ml'},'nutrition':{'basis':'100ml','estimated':True,'nutrients':{'dietaryEnergyConsumed':{'value':64,'unit':'kcal'},'dietaryVitaminB12':{'value':0.4,'unit':'µg'},'dietaryProtein':None}}}
+        raw=json.dumps({'schema':'friss-meal-v1','items':[item]})
+        preview=await self.client.post('/json-import/preview',json={'raw':raw})
+        self.assertEqual(preview.status_code,200)
+        checked=preview.json()['items'][0];checked.pop('matches')
+        self.assertEqual(checked['nutrition']['nutrients']['dietaryVitaminB12']['unit'],'mcg')
+        body={'id':str(uuid4()),'raw':raw,'timestamp':'2026-10-12T18:00:00+02:00','items':[checked]}
+        result=await self.client.post('/json-import/commit',json=body)
+        self.assertEqual(result.status_code,201)
+        self.assertEqual((await self.client.post('/json-import/commit',json=body)).json(),result.json())
+        entry=(await self.client.get('/entries')).json()[0]
+        self.assertEqual(entry['status'],'processed')
+        self.assertEqual(entry['nutrients']['dietaryEnergyConsumed']['value'],96)
+        self.assertAlmostEqual(entry['nutrients']['dietaryVitaminB12']['value'],0.6)
+        self.assertNotIn('dietaryProtein',entry['nutrients'])
+        self.assertEqual(entry['source']['provider'],'ChatGPT import')
+        self.assertTrue(entry['warnings'])
+        recipe={'id':str(uuid4()),'name':'Imported recipe','servings':2}
+        await self.client.post('/recipes',json=recipe)
+        body.update(id=str(uuid4()),recipe_id=recipe['id'])
+        self.assertEqual((await self.client.post('/json-import/commit',json=body)).status_code,201)
+        ingredients=(await self.client.get('/recipes/'+recipe['id'])).json()['ingredients']
+        self.assertEqual(ingredients[0]['nutrients']['dietaryEnergyConsumed']['value'],96)
+
+    async def test_imported_missing_quantity_can_be_resolved_without_search(self):
+        item={'name':'AI food','nutrition':{'basis':'100g','nutrients':{'dietaryEnergyConsumed':{'value':100,'unit':'kcal'}}}}
+        raw=json.dumps({'schema':'friss-meal-v1','items':[item]})
+        body={'id':str(uuid4()),'raw':raw,'timestamp':'2026-10-12T18:00:00+02:00','items':[item]}
+        self.assertEqual((await self.client.post('/json-import/commit',json=body)).status_code,201)
+        entry=(await self.client.get('/entries')).json()[0]
+        self.assertEqual(entry['status'],'needs_review')
+        resolved=await self.client.post('/entries/'+entry['id']+'/resolve',json={'quantity':{'value':40,'unit':'g'}})
+        self.assertEqual(resolved.json()['nutrients']['dietaryEnergyConsumed']['value'],40)
+
 class JSONFormatTests(unittest.TestCase):
     def test_format_numbers_duplicates_and_fences(self):
         valid=json.dumps({'schema':'friss-meal-v1','items':[{'name':'Rice','quantity':None}]})
@@ -101,3 +136,10 @@ class JSONFormatTests(unittest.TestCase):
         for raw in ['[]','{}',valid.replace('friss-meal-v1','other'),'{"schema":"friss-meal-v1","schema":"friss-meal-v1","items":[]}',valid.replace('null','{"value":NaN,"unit":"g"}'),valid.replace('null','{"value":-1,"unit":"g"}'),valid.replace('null','{"value":1,"unit":"portion"}'),valid.replace('Rice',''),valid.replace('Rice','\\ud800')]:
             with self.assertRaises(HTTPException):json_import.parse(raw)
         with self.assertRaises(HTTPException):json_import.parse('x'*262145)
+
+    def test_imported_nutrition_validation(self):
+        good={'name':'Food','nutrition':{'basis':'100g','nutrients':{'dietaryProtein':{'value':3,'unit':'g'}}}}
+        for changes in [{'basis':'portion'},{'nutrients':{'dietaryProtein':{'value':-1,'unit':'g'}}},{'nutrients':{'dietaryEnergyConsumed':{'value':10,'unit':'g'}}},{'nutrients':{'unknown':{'value':1,'unit':'g'}}},{'nutrients':{'dietaryProtein':None}}]:
+            item={**good,'nutrition':{**good['nutrition'],**changes}}
+            with self.assertRaises(HTTPException):json_import.parse(json.dumps({'schema':'friss-meal-v1','items':[item]}))
+        with self.assertRaises(HTTPException):json_import.parse(json.dumps({'schema':'friss-meal-v1','items':[{**good,'bls_code':'X'}]}))

@@ -1,6 +1,6 @@
 """Offline JSON handoff from ChatGPT or any other external text/image tool.
 
-Only food identities / quantities are accepted, not invented nutrient totals.
+Food identities, quantities and explicitly labelled external nutrient estimates are accepted.
 Preview never books entries. Commit writes all entries atomically; a fixed batch
 UUID makes retries safe. Original pasted/uploaded text is retained unchanged.
 """
@@ -15,6 +15,7 @@ from uuid import UUID,uuid4,uuid5,NAMESPACE_URL
 from fastapi import Depends,HTTPException
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,model_validator
 from . import food_search,nutrient_policy
+from .manual_ingredients import Nutrient,NUTRIENTS
 
 MAX_BYTES=256*1024
 class Quantity(BaseModel):
@@ -22,11 +23,36 @@ class Quantity(BaseModel):
     value:float=Field(gt=0,allow_inf_nan=False)
     unit:Literal['g','ml']
 
+class ImportedNutrient(Nutrient):
+    model_config=ConfigDict(extra='forbid')
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_unit(cls,value):
+        if isinstance(value,dict) and value.get('unit') in ('µg','μg','ug'):
+            return {**value,'unit':'mcg'}
+        return value
+
+class Nutrition(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    basis:Literal['100g','100ml']
+    nutrients:dict[str,ImportedNutrient|None]=Field(min_length=1)
+    estimated:bool=True
+    @model_validator(mode='after')
+    def valid(self):
+        for key,n in self.nutrients.items():
+            if key not in NUTRIENTS:raise ValueError('Unknown nutrition identifier: '+key)
+            if n is None:continue
+            allowed={'kcal'} if key=='dietaryEnergyConsumed' else {'g','ml'} if key=='dietaryWater' else {'g','mg','mcg'}
+            if n.unit not in allowed:raise ValueError('Invalid nutrient unit: '+key)
+        if not any(n is not None for n in self.nutrients.values()):raise ValueError('At least one known nutrient required')
+        return self
+
 class Item(BaseModel):
     model_config=ConfigDict(extra='forbid')
     name:str=Field(min_length=1,max_length=200)
     quantity:Quantity|None=None
     notes:str=Field(default='',max_length=2000)
+    nutrition:Nutrition|None=None
     bls_code:str|None=Field(default=None,min_length=1,max_length=100)
     manual_id:UUID|None=None
     barcode:str|None=Field(default=None,pattern=r'^\d{8,14}$')
@@ -36,6 +62,7 @@ class Item(BaseModel):
         if not self.name:raise ValueError('Food name required')
         for text in [self.name,self.notes,self.bls_code or '']:text.encode('utf-8')
         if sum(v is not None for v in [self.bls_code,self.manual_id,self.barcode])>1:raise ValueError('Choose one food reference')
+        if self.nutrition and any(v is not None for v in [self.bls_code,self.manual_id,self.barcode]):raise ValueError('Choose imported nutrition OR a database reference')
         return self
 
 class Meal(BaseModel):
@@ -157,6 +184,9 @@ def install(app,db,auth,Entry,process,data_dir,normalize):
                     row=c.execute('SELECT payload FROM manual_ingredients WHERE id=?',(str(item.manual_id),)).fetchone()
                 if not row:raise HTTPException(422,'Own ingredient was removed')
                 entry['manual_snapshot']=json.loads(row['payload'])
+            if item.nutrition:
+                entry['imported_nutrition']={**item.nutrition.model_dump(mode='json'),'name':item.name}
+                native['imported_nutrition']=entry['imported_nutrition']
             prepared.append((native,entry))
         token=str(uuid4())
         with db() as c:
@@ -175,7 +205,7 @@ def install(app,db,auth,Entry,process,data_dir,normalize):
             immutable(originals/f'import-{body.id}.json',json.dumps(meal.model_dump(mode='json',by_alias=True),ensure_ascii=False,indent=2))
             for native,entry in prepared:
                 immutable(originals/f"{entry['id']}.json",json.dumps({**native,'import_context':entry['import_context']},ensure_ascii=False))
-                if entry['type']=='text':entry.update(status='needs_review',reason='Assign the imported food to a database entry',nutrients={},warnings=[])
+                if entry['type']=='text' and not entry.get('imported_nutrition'):entry.update(status='needs_review',reason='Assign the imported food to a database entry',nutrients={},warnings=[])
                 else:await process(entry)
                 with db() as c:
                     updated=c.execute('UPDATE json_import_batches SET lease=? WHERE id=? AND token=?',(time.time()+120,str(body.id),token))
