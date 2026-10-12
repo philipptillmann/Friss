@@ -55,6 +55,7 @@ async def lifespan(app):
         CREATE TABLE IF NOT EXISTS recipes(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS health_days(id TEXT PRIMARY KEY, day TEXT NOT NULL, timezone TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(day,timezone));
         CREATE TABLE IF NOT EXISTS entries(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS json_import_batches(id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, payload TEXT NOT NULL, token TEXT NOT NULL, lease REAL NOT NULL);
         ''')
         for path in sorted((DATA / 'bls').glob('*.json')):
             for food in json.loads(path.read_text()).values():
@@ -73,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.17.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.18.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -92,7 +93,7 @@ class Entry(BaseModel):
     manual_id: UUID | None = None
     bls_code: str | None = None
     filename: str | None = None
-    capture_method: Literal['recent','favorite'] | None = None
+    capture_method: Literal['recent','favorite','json_import'] | None = None
     recipe_id: UUID | None = None
     drink: Literal['water','coffee','alcohol'] | None = None
     caffeine_mg: float | None = Field(default=None, ge=0, allow_inf_nan=False)
@@ -614,3 +615,6 @@ alcohol.install(app,db,auth)
 
 from . import fooddata_import
 fooddata_import.install(app,auth)
+
+from . import json_import
+json_import.install(app,db,auth,Entry,process,lambda:DATA,normalize)

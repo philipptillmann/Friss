@@ -1,0 +1,25 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const elements=new Map(),listeners={},observers=[];
+function element(){return {value:'',hidden:false,disabled:false,children:[],textContent:'',files:[],parentElement:{},append(...nodes){for(const n of nodes)n.parentElement=this;this.children.push(...nodes)},replaceChildren(...nodes){this.children=[];this.append(...nodes)},setAttribute(){},addEventListener(){}}}
+const $=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id)};
+const preview={schema:'friss-meal-v1',title:'Lunch',items:[{name:'Rice',quantity:{value:150,unit:'g'},notes:'Estimated',matches:[{kind:'bls',id:'RICE',label:'Rice',query:'Rice'}]},{name:'Unknown food',quantity:null,notes:'',matches:[]}]};
+let fail=true,ids=0,posts=[];
+const context=vm.createContext({$: $,localDate:d=>d.toISOString().slice(0,10),document:{getElementById:$,createElement:element,documentElement:{}},window:{addEventListener(name,fn){listeners[name]=fn}},MutationObserver:class {constructor(fn){observers.push(fn)}observe(){}},words:{de:{},en:{}},lang:'en',currentPage:'meals',activeRecipe:'',recipeRows:[{id:'recipe',name:'Recipe'}],t:k=>k,translate(){},navigator:{},message(){},confirm:()=>true,rememberFoodSelection(){},uuid:()=>String(++ids),refresh:async()=>{},api:async(path,options)=>{if(path.endsWith('/preview'))return preview;const body=JSON.parse(options.body);posts.push(body);if(fail){fail=false;throw Error('Interrupted')}return {count:body.items.length}}});
+vm.runInContext(fs.readFileSync('app/static/json-import.js','utf8'),context);
+(async()=>{
+ $('jsonImportRaw').value=JSON.stringify({schema:'friss-meal-v1',items:preview.items.map(({matches,...i})=>i)});
+ await $('jsonPreviewForm').onsubmit({preventDefault(){}});
+ assert.equal(posts.length,0);assert.equal($('jsonCommitForm').hidden,false);
+ const rows=$('jsonImportItems').children;
+ const amount=rows[0].children[1].children[1].children[0];amount.value='125';
+ context.lang='de';observers[0]();assert.equal(amount.value,'125','language changes must preserve corrections');
+ $('jsonImportTime').value='2026-10-12T18:00:00';
+ await $('jsonCommitForm').onsubmit({preventDefault(){}});
+ assert.equal(posts[0].items[0].quantity.value,125);assert.equal(posts[0].items[0].bls_code,'RICE');assert.equal(posts[0].items[1].quantity,null);
+ assert.equal($('jsonImportRaw').disabled,true);
+ amount.value='300';await $('jsonCommitForm').onsubmit({preventDefault(){}});
+ assert.deepEqual(posts[1],posts[0],'ambiguous transfer must retry the same batch and quantities');
+ assert.equal($('jsonCommitForm').hidden,true);assert.equal($('jsonImportRaw').value,'');
+ assert.equal($('jsonImportRaw').disabled,false);
+ console.log('JSON import UI: preview, corrections, unknown quantities and duplicate-safe retries passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

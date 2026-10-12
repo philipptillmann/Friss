@@ -298,3 +298,10 @@ API-Einstellung: `missing_nutrients_as_zero` im bestehenden versionierten `/sett
 Auf Home auf einen Kalorien-, Makro-, Mikro-, Wasser-, Koffein- oder Alkoholmengenwert tippen, auch in den Zielkarten. Eine Übersicht zeigt die heutigen Einträge mit Uhrzeit, verzehrter Menge und Beitrag zu genau diesem Wert. Ein Eintrag öffnet seine Detailseite. Nullwerte, angenommene Nullen und unbekannte Angaben stehen in einem separaten aufklappbaren Abschnitt. Rezeptportionen werden als gebuchte Einträge angezeigt, Zutaten nicht zusätzlich gezählt. BLS-Wassergehalt und getrunkenes Wasser behalten ihre getrennten Berechnungen. Der BAC ist eine Modellschätzung und keine additive Nährstoffsumme.
 
 Die Daten kommen zusammen mit der Tagesübersicht aus `/home-summary`; Contributors verwenden dieselben Einheiten, Tagesgrenzen und Null-Einstellung wie die Summe. Bei Abmeldung schließt die Übersicht und verwirft ihre Inhalte. Tests prüfen die Übereinstimmung von Einzelbeiträgen und Summen, Rezeptzutaten-Ausschluss sowie Öffnen und Schließen der Übersicht.
+
+
+## JSON-Handoff aus ChatGPT (1.18.0)
+
+Unter Mahlzeiten oder bei Rezeptzutaten **JSON aus ChatGPT importieren** öffnen. Dort die kopierbare ChatGPT-Vorlage mit Foto oder Beschreibung in der ChatGPT-App verwenden, deren JSON als Text einfügen oder Datei hochladen, die Lebensmittel / Mengen prüfen und gemeinsam speichern. Friss führt keinen KI-Aufruf aus. Die Nährwerte kommen aus gewählten BLS-Datensätzen oder eigenen Zutaten; fehlende Zuordnungen bleiben nachbearbeitbar. Die Eingabe wird im Original erhalten, Wiederholungen sind durch die Import-ID gegen doppelte Buchung abgesichert.
+
+Das vollständige Format `friss-meal-v1`, Beispiele, API und Nutzung sind in [JSON_IMPORT.md](docs/JSON_IMPORT.md) beschrieben. Eine [Beispieldatei](app/static/friss-meal-example.json) liegt ebenfalls bei. Mengen in Fotos als Schätzungen behandeln; ml nicht ohne bekannte Dichte zu g umdeuten. Der Import gilt für eine Mahlzeit beziehungsweise eine Zutatenliste mit einem gemeinsamen, bearbeitbaren Zeitpunkt.

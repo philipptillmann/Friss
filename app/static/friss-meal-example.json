@@ -1,0 +1,8 @@
+{
+  "schema": "friss-meal-v1",
+  "title": "Cappuccino",
+  "items": [
+    {"name": "Espresso", "quantity": {"value": 45, "unit": "g"}, "notes": "Menge angegeben"},
+    {"name": "Vollmilch 3,5 % Fett", "quantity": {"value": 90, "unit": "g"}, "notes": "Menge angegeben"}
+  ]
+}

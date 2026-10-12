@@ -8,7 +8,9 @@ function renderEntryDetails(setTime=false){
  $('detailName').textContent=e.food?.['name_'+lang]||e.food?.product_name||e.description||e.barcode||t(e.drink||e.type);
  $('detailMetadata').replaceChildren();
  const method={manual:'detailManual',item:'detailSearch',picture:'detailPhoto',barcode:'entryBarcode',recipe:'detailRecipe',drink:'detailDrink',text:'detailText'}[e.type];
- detailMetadata('captureMethod',t(e.capture_method==='recent'?'detailRecent':e.capture_method==='favorite'?'detailFavorite':method||e.type));
+ detailMetadata('captureMethod',t(e.capture_method==='json_import'?'detailJsonImport':e.capture_method==='recent'?'detailRecent':e.capture_method==='favorite'?'detailFavorite':method||e.type));
+ if(e.import_context?.title)detailMetadata('jsonMealTitle',e.import_context.title);
+ if(e.import_context?.notes)detailMetadata('jsonItemNotes',e.import_context.notes);
  detailMetadata('time',new Date(e.timestamp).toLocaleString(lang));
  detailMetadata('entryQuantity',e.quantity?formatHome(e.quantity.value)+' '+t(e.quantity.unit==='portion'?'portions':e.quantity.unit==='fraction'?'fraction':e.quantity.unit):'—');
  detailMetadata('healthState',e.recipe_id?'—':t(e.health_status));

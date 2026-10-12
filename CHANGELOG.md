@@ -1,3 +1,10 @@
+## 1.18.0 — JSON-Import für externe Foto-/Texterkennung
+
+- Kopierbare ChatGPT-Vorlage, JSON-Dateiupload und Einfügen von Text auf Mahlzeiten- und Rezeptseiten, ohne KI-Anbindung oder API-Gebühren.
+- Standardformat friss-meal-v1 für Lebensmittel, Mengen und Hinweise; Vorschau mit BLS- / eigenen Zutaten-Treffern und Korrekturmöglichkeit.
+- Gemeinsame, atomare Buchung, unveränderte Originaleingabe, doppelfreie Wiederholung mit derselben Import-ID. Unbekannte Mengen / Lebensmittel bleiben zur Nachbearbeitung erhalten.
+- Import-Herkunft und Hinweise in den Eintragsdetails; Anleitung und Beispieldatei beigefügt.
+
 ## 1.17.0 — Beiträge zu Tageswerten öffnen
 
 - Mengen auf Home und in den Zielkarten öffnen eine Liste der zugehörigen Tagebucheinträge mit Uhrzeit, verzehrter Menge und individuellem Nährwertbeitrag.
