@@ -3,7 +3,7 @@ const elements=new Map();
 function element(){return {value:'',hidden:false,children:[],textContent:'',append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=[...nodes]},setAttribute(){},reset(){}}}
 const $=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id)};
 $('dashboard').hidden=true;
-const context=vm.createContext({$,words:{de:{},en:{}},lang:'de',t:k=>k,document:{createElement:element,createElementNS:element,documentElement:{}},window:{addEventListener(){}},MutationObserver:class {observe(){}},setInterval(){},translate(){},recipeRows:[],currentPage:'home',localDate:()=> '2026-10-11',message(){},api:null,console});
+const context=vm.createContext({$,words:{de:{},en:{}},lang:'de',t:k=>k,document:{createElement:element,createElementNS:element,documentElement:{}},window:{addEventListener(){},dispatchEvent(){}},Event:class {},MutationObserver:class {observe(){}},setInterval(){},translate(){},recipeRows:[],currentPage:'home',localDate:()=> '2026-10-11',message(){},api:null,console});
 vm.runInContext(fs.readFileSync('app/static/home.js','utf8'),context);
 const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:'kcal'}],total:1,partial:false,qualifiers:[]}],unresolved:0,caffeine_mg:0,ethanol_g:0,drinking_water_ml:0};
 (async()=>{

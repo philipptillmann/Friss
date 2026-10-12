@@ -1,5 +1,5 @@
 """Persisted Home preferences, button images, and daily nutrient summaries."""
-from . import bls_units
+from . import bls_units, alcohol
 import io
 import json
 import math
@@ -111,20 +111,7 @@ def summarize(day_entries):
     return {'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
 
 def current_bac(entries,profile,now):
-    if not profile: return {'percent':None,'reason':'profile_required'}
-    # Use the entire retained history up to now, rather than reset elimination at midnight.
-    drinks=[];unresolved=False
-    for e in entries:
-        timestamp=datetime.fromisoformat(e['timestamp'])
-        if timestamp>now or e.get('recipe_id'): continue
-        if e.get('drink')=='alcohol' and e['status']!='processed': unresolved=True
-        if e.get('ethanol_g',0)>0 and e['status']=='processed': drinks.append((timestamp,e['ethanol_g']))
-    if unresolved: return {'percent':None,'reason':'unresolved_alcohol'}
-    if not drinks: return {'percent':0,'reason':'no_logged_drinks'}
-    origin=min(t for t,_ in drinks)
-    elapsed=(now-origin).total_seconds()/3600
-    absorbed=sum(.1*g/(profile['mass_kg']*profile['distribution'])*(-math.expm1(-profile['absorption_per_hour']*(now-t).total_seconds()/3600)) for t,g in drinks)
-    return {'percent':max(0,absorbed-profile['elimination_percent_per_hour']*elapsed),'reason':'model_estimate','origin':origin.isoformat(),'as_of':now.isoformat()}
+    return alcohol.current(entries,profile,now)
 
 def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_intake):
     def settings():
@@ -157,9 +144,9 @@ def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_inta
             if validated.type=='item' and not validated.bls_code: raise HTTPException(422,'BLS code required')
             if validated.type=='text' and not validated.description: raise HTTPException(422,'Text required')
             if validated.quantity is None: raise HTTPException(422,'Preset amount required')
-            if validated.type=='drink' and validated.quantity.unit!='ml': raise HTTPException(422,'Drink volume must use ml')
+            if validated.type=='drink' and validated.quantity.unit!='ml' and not (validated.drink=='alcohol' and validated.quantity.unit=='g'): raise HTTPException(422,'Drink volume must use ml')
             if validated.drink=='coffee' and validated.caffeine_mg is None: raise HTTPException(422,'Caffeine amount required')
-            if validated.drink=='alcohol' and validated.alcohol_abv is None: raise HTTPException(422,'ABV required')
+            if validated.drink=='alcohol' and validated.quantity.unit=='ml' and validated.alcohol_abv is None: raise HTTPException(422,'ABV required')
         value=body.model_dump(mode='json')
         with db() as c:
             c.execute('BEGIN IMMEDIATE')

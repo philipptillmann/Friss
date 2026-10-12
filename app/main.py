@@ -73,7 +73,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.13.2', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.14.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = {'energy-kcal':('dietaryEnergyConsumed','kcal'), 'carbohydrates':('dietaryCarbohydrates','g'), 'fiber':('dietaryFiber','g'), 'sugars':('dietarySugar','g'), 'fat':('dietaryFatTotal','g'), 'saturated-fat':('dietaryFatSaturated','g'), 'proteins':('dietaryProtein','g'), 'sodium':('dietarySodium','g'), 'caffeine':('dietaryCaffeine','g')}
@@ -106,6 +106,8 @@ class Entry(BaseModel):
             raise ValueError('Manual ingredient required; do not combine with BLS')
         if self.type == 'barcode' and not self.barcode:
             raise ValueError('barcode required')
+        if self.type=='drink' and self.drink=='alcohol' and self.quantity and self.quantity.unit=='g' and self.alcohol_abv is not None:
+            raise ValueError('Use grams of pure alcohol OR drink volume and ABV')
         if self.type == 'drink' and not self.drink:
             raise ValueError('drink required')
         return self
@@ -123,9 +125,15 @@ def save_entry(e):
 
 async def process(e, reuse_off=False):
     e.update(status='needs_review', reason='Food or quantity unresolved', nutrients={}, warnings=[])
+    e.pop('ethanol_g',None)
     q = e.get('quantity')
     food = None
     if e['type'] == 'drink':
+        if e['drink']=='alcohol' and q and q['unit']=='g':
+            e['ethanol_g']=q['value']
+            e.update(status='processed',reason=None)
+            e['warnings'].append('Pure ethanol recorded; total drink calories need product data')
+            return
         if not q or q['unit'] != 'ml':
             e['reason'] = 'Drink volume in ml required'
             return
@@ -326,6 +334,7 @@ async def resolve(id:UUID, resolution:Resolution):
         if datetime.fromisoformat(e['timestamp'])!=resolution.timestamp:
             e.setdefault('original_timestamp',e['timestamp'])
             e['timestamp']=resolution.timestamp.isoformat()
+    if e.get('drink')=='alcohol' and resolution.quantity.unit=='g': e['alcohol_abv']=None
     e.update(quantity=resolution.quantity.model_dump(), revision=e['revision']+1)
     await process(e,reuse_off=True)
     save_entry(e)
@@ -591,3 +600,6 @@ food_search.install(app, db, auth, normalize)
 
 from . import manual_ingredients
 manual_ingredients.install(app,db,auth)
+
+from . import alcohol
+alcohol.install(app,db,auth)

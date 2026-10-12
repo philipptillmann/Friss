@@ -71,9 +71,9 @@ def install(app,db,auth,Entry):
             if not row: raise HTTPException(422,'Select an existing BLS food')
         if e.type=='text' and not (e.description or '').strip(): raise HTTPException(422,'Description required')
         if e.type=='drink':
-            if not e.quantity or e.quantity.unit!='ml': raise HTTPException(422,'Drink amount in ml required')
+            if not e.quantity or e.quantity.unit!='ml' and not (e.drink=='alcohol' and e.quantity.unit=='g'): raise HTTPException(422,'Drink amount in ml required')
             if e.drink=='coffee' and e.caffeine_mg is None: raise HTTPException(422,'Caffeine amount required')
-            if e.drink=='alcohol' and e.alcohol_abv is None: raise HTTPException(422,'Alcohol content required')
+            if e.drink=='alcohol' and e.quantity.unit=='ml' and e.alcohol_abv is None: raise HTTPException(422,'Alcohol content required')
         elif e.quantity and e.quantity.unit!='g': raise HTTPException(422,'Food amount must use grams')
         return body.model_dump(mode='json')
 

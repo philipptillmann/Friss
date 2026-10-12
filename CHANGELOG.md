@@ -1,3 +1,11 @@
+## 1.14.0 — Alkohol direkt ins Tagebuch
+
+- Separate Simulation ersetzt durch Getränkeerfassung: reiner Alkohol in g oder ml und Volumenprozent, Name und bearbeitbare Uhrzeit.
+- Alkohol-Schnellwahl nutzt bestehende Kacheln / alkoholhaltige Rezepte und die gewählte Eintragungszeit. Gramm-Eingaben auch in Schnellwahl, Favoriten und Nachbearbeitung.
+- Tageskurve aus gespeicherten Einträgen und Körperprofil; Restalkohol vor Tagesbeginn, minütliche Punkte, Prognose gestrichelt. Home nutzt dieselbe Berechnung.
+- Abbau endet bei null; spätere Getränke nach Nüchternphasen werden nicht mehr durch fortgesetzten Abzug unterschätzt.
+- API- und UI-Tests für Speicherung, Zeitpunktänderungen, Löschen, Mengenformate, Tagesgrenzen und identische Wiederholung unklarer Übertragungen.
+
 ## 1.13.2 — Tagesziele auf Home
 
 - Ein verspäteter Home-Abruf kann frisch gespeicherte Kalorien- und Makroziele nicht mehr durch alte Einstellungen ersetzen.
