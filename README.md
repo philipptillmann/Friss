@@ -266,3 +266,14 @@ USDA-Kohlenhydrate „by difference“ enthalten Ballaststoffe. Ab 1.15.1 zieht 
 Quelllink, Abrufzeit, Bezugsgröße und veröffentlichte Rohwerte werden mit der Zutat gespeichert und bleiben im Snapshot eines gebuchten Eintrags erhalten. Der Import benötigt vom Debian-Server aus Internetzugriff auf `fooddata.the50.store`. Andere Domains und Pfade werden abgelehnt, Weiterleitungen nicht verfolgt; Zeitüberschreitung, 404 und zu große Seiten führen zu einer Fehlermeldung ohne Speicherung. Ein HTML-Import führt keine fremden Skripte aus.
 
 API: authentifiziertes `POST /manual-ingredients/import` mit `{"url":"https://fooddata.the50.store/ingredients/…"}` liefert eine Vorschau, keine automatische Speicherung. Noch offen ist ein echter Test in der iPhone-PWA auf dem Zielserver. Prüfungen umfassen den Zimt-Datensatz, Einheiten, Null-/Fehlwerte, Varianten, Quellen-Snapshots, Abrufgrenzen und die Eingabemaske (`node tests/test_manual_import_ui.cjs`).
+
+
+## Fehlende Nährwerte als Null behandeln (1.16.0)
+
+Unter Einstellungen → Fehlende Nährwerte lässt sich „Fehlende Nährwerte als 0 behandeln“ aktivieren. Standardmäßig ist die Option ausgeschaltet. Sie ergänzt leere / null / nicht vorhandene Nährwertfelder in der Auswertung mit gekennzeichneten, angenommenen Nullwerten. Bereits gespeicherte und neue Einträge, Tagesziele, Tageswerte, Rezeptberechnungen und Statistiken verwenden dieselbe Einstellung. Bei Rezepten werden bekannte Werte einzelner Zutaten weiterhin mitgerechnet, auch wenn andere Zutaten den jeweiligen Wert nicht liefern.
+
+Die Rohdaten, eigenen Zutaten und gebuchten Rezept-Snapshots werden nicht überschrieben. Ausschalten stellt die ursprünglichen unbekannten Angaben wieder her. Fehlende Mengen oder Lebensmittelidentitäten bleiben zur Nachbearbeitung offen; TR, Nachweisgrenzen und nicht leere Werte mit unbekannter Einheit bleiben als solche erhalten. „Unvollständig“ entfällt für durch Nullannahmen ergänzte Nährwertsummen, nicht für tatsächlich offene Einträge. Tage ohne Einträge bleiben Statistik-Lücken.
+
+Die Einstellung gilt auch für künftig vorbereitete Health-Exporte; Nullannahmen sind keine gemessenen Nullwerte. Vorbereitete Tagesbatches und bereits reservierte Einzel-Exporte behalten ihre damaligen Werte. Ein Wechsel der Einstellung markiert einen vorhandenen Tagesbatch als seit Vorbereitung verändert und gibt ihn nicht erneut zum Export frei. Lebensmittelwasser in g bleibt vom Health-Wasservolumen in ml getrennt.
+
+API-Einstellung: `missing_nutrients_as_zero` im bestehenden versionierten `/settings`-Objekt. Angenommene Werte tragen in Eintragsansichten `assumed: true`; Originaldaten bleiben in SQLite / ursprünglichen Dateien unverändert. Tests prüfen Umschalten, Neustart, Rezeptanteile, Statistik-Lücken, offene Mengen und unveränderliche Health-Batches.

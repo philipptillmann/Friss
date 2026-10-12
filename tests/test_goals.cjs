@@ -9,7 +9,7 @@ const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:
 (async()=>{
  let prefs={version:0,buttons:[],bac:null,goals:null},release;
  context.api=async(path,options)=>{
-  if(path.startsWith('/home-summary'))return summary;
+  if(path.startsWith('/home-summary'))return {...summary,missing_nutrients_as_zero:!!prefs.missing_nutrients_as_zero};
   if(options?.method==='PUT'){prefs={...JSON.parse(options.body),version:prefs.version+1};return structuredClone(prefs)}
   return structuredClone(prefs);
  };
@@ -27,7 +27,12 @@ const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:
  assert.equal($('goalProgress').children[0].children[2].max,2000);
  assert.equal($('goalProgress').children[0].children[2].value,1000);
  context.api=initialAPI;
+ context.refresh=async()=>vm.runInContext('loadHome()',context);
  await vm.runInContext('loadHome()',context);
  assert.equal(vm.runInContext('homePreferences.goals.energy_kcal',context),2000);
+ $('missingValuesZero').checked=true;await $('missingValuesForm').onsubmit({preventDefault(){},submitter:element()});
+ assert.equal(vm.runInContext('homePreferences.missing_nutrients_as_zero',context),true);assert.equal($('homeZeroHint').hidden,false);
+ $('missingValuesZero').checked=false;await $('missingValuesForm').onsubmit({preventDefault(){},submitter:element()});
+ assert.equal(vm.runInContext('homePreferences.missing_nutrients_as_zero',context),false);assert.equal($('homeZeroHint').hidden,true);
  console.log('Goal form save, progress display and delayed refresh checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});

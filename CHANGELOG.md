@@ -1,3 +1,10 @@
+## 1.16.0 — Option für fehlende Nährwerte
+
+- Neue, standardmäßig ausgeschaltete Einstellung: fehlende Nährwerte bei der Auswertung als 0 annehmen.
+- Einheitliche Anwendung auf bestehende / neue Einträge, Tageswerte, Rezepte, Statistik und zukünftige Health-Exporte; bekannte Rezeptanteile bleiben erhalten.
+- Reversibel ohne Überschreiben von Rohdaten und gebuchten Snapshots. Fehlende Mengen, Lebensmittelzuordnungen, Spuren und ungeprüfte Einheiten bleiben sichtbar.
+- Exportbatches und reservierte Einzelwerte bleiben eingefroren; Einstellung und Nullannahmen werden nachvollziehbar gekennzeichnet.
+
 ## 1.15.1 — Amerikanische Kohlenhydrate ohne Ballaststoffe
 
 - FoodData-Import zieht bekannte Ballaststoffe von USDA-Gesamtkohlenhydraten ab. Zimt: 80,59 − 53,1 = 27,49 g pro 100 g.

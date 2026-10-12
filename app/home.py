@@ -1,5 +1,5 @@
 """Persisted Home preferences, button images, and daily nutrient summaries."""
-from . import bls_units, alcohol
+from . import bls_units, alcohol, nutrient_policy
 import io
 import json
 import math
@@ -45,6 +45,7 @@ class Preferences(BaseModel):
     buttons: list[QuickButton]
     bac: BACProfile | None = None
     goals: Goals | None = None
+    missing_nutrients_as_zero: bool = False
 
     @model_validator(mode='after')
     def unique_ids(self):
@@ -68,7 +69,7 @@ DEFAULT = {'version':0,'bac':None,'buttons':[
 ALL_NUTRIENTS = ('EnergyConsumed Carbohydrates Fiber Sugar FatTotal FatMonounsaturated FatPolyunsaturated FatSaturated Cholesterol Protein VitaminA Thiamin Riboflavin Niacin PantothenicAcid VitaminB6 Biotin VitaminB12 VitaminC VitaminD VitaminE VitaminK Folate Calcium Chloride Iron Magnesium Phosphorus Potassium Sodium Zinc Chromium Copper Iodine Manganese Molybdenum Selenium Water').split()
 MASS = {'g':1,'mg':.001,'mcg':.000001}
 
-def nutrient_values(e):
+def nutrient_values(e,missing_as_zero=False):
     values={k:dict(v) for k,v in e.get('nutrients',{}).items()}
     if e.get('source',{}).get('provider')=='BLS' and e.get('food',{}).get('bls_code') and (e.get('quantity') or {}).get('unit')=='g':
         for key,raw in e['food'].get('nutrients',{}).items():
@@ -76,20 +77,47 @@ def nutrient_values(e):
                 if isinstance(raw,(int,float)) and not isinstance(raw,bool) and math.isfinite(raw) and raw>=0:
                     values[key]={'value':raw*e['quantity']['value']/100,'unit':bls_units.UNITS.get(key)}
                 else: values[key]={'value':None,'unit':bls_units.UNITS.get(key),'qualifier':raw}
+    if e.get('source',{}).get('provider')=='Open Food Facts' and (e.get('quantity') or {}).get('unit')=='g':
+        raw=(e.get('food') or {}).get('nutriments',{})
+        for source,(key,unit) in nutrient_policy.OFF_MAP.items():
+            value=raw.get(source+'_100g')
+            if key not in values and value is not None:
+                if bls_units.numeric(value):values[key]={'value':value*e['quantity']['value']/100,'unit':unit}
+                else:values[key]={'value':None,'unit':unit,'qualifier':value}
     if e.get('recipe_snapshot'):
         r=e['recipe_snapshot'];q=e['quantity'];factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']
-        ingredients=[nutrient_values(i) for i in r['ingredients']]
+        ingredients=[nutrient_values(i,missing_as_zero) for i in r['ingredients']]
         common=set.intersection(*(set(v) for v in ingredients)) if ingredients else set()
         for key in common-set(values):
             terms=[v[key] for v in ingredients]
-            if all(v.get('value') is not None and v.get('unit')==terms[0].get('unit') for v in terms):
-                values[key]={'value':sum(v['value'] for v in terms)*factor,'unit':terms[0].get('unit')}
+            numeric=all(v.get('value') is not None for v in terms)
+            units=[v.get('unit') for v in terms];unit=units[0]
+            if numeric and all(u==unit for u in units):
+                total=sum(v['value'] for v in terms)
+                values[key]={'value':total*factor,'unit':unit}
+                if any(v.get('assumed') for v in terms):values[key]['assumed']=True
+            elif numeric and all(u in MASS for u in units):
+                total=sum(v['value']*MASS[v['unit']]/MASS[unit] for v in terms)
+                values[key]={'value':total*factor,'unit':unit}
+                if any(v.get('assumed') for v in terms):values[key]['assumed']=True
+            elif missing_as_zero:
+                qualifiers=[str(v['qualifier']) for v in terms if v.get('qualifier') not in (None,'')]
+                values[key]={'value':None,'unit':unit,'qualifier':' / '.join(qualifiers) or 'Incompatible nutrient units'}
+
+    if missing_as_zero and nutrient_policy.ready(e):values=nutrient_policy.fill(values,'ml' if e['type']=='drink' else 'g')
     return values
 
-def summarize(day_entries):
+def interpreted_entry(e,missing_as_zero=False):
+    if not missing_as_zero or not nutrient_policy.ready(e):return e
+    values=nutrient_values(e,True)
+    nutrients={k:v for k,v in values.items() if v.get('value') is not None and v.get('unit')}
+    return {**e,'status':'processed','reason':None,'nutrients':nutrients,'assumed_zero_nutrients':[k for k,v in nutrients.items() if v.get('assumed')]}
+
+def summarize(day_entries,missing_as_zero=False):
+    day_entries=[interpreted_entry(e,missing_as_zero) for e in day_entries]
     foods=[e for e in day_entries if e['type']!='drink']
     calculated=[e for e in foods if e['status']=='processed']
-    source=[nutrient_values(e) for e in calculated]
+    source=[nutrient_values(e,missing_as_zero) for e in calculated]
     keys={'dietary'+n for n in ALL_NUTRIENTS}|set().union(*(set(v) for v in source))
     result=[]
     for key in sorted(keys):
@@ -108,7 +136,7 @@ def summarize(day_entries):
         if n and n['unit'] in MASS: caffeine+=n['value']*MASS[n['unit']]*1000
         water+=e.get('drinking_water_ml',0)
         if e.get('drink')=='water': water+=e.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
-    return {'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
+    return {'missing_nutrients_as_zero':missing_as_zero,'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
 
 def current_bac(entries,profile,now):
     return alcohol.current(entries,profile,now)
@@ -119,7 +147,7 @@ def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_inta
             row=c.execute('SELECT payload FROM preferences WHERE id=1').fetchone()
             value=json.loads(row['payload']) if row else json.loads(json.dumps(DEFAULT))
             images={r['id'] for r in c.execute('SELECT id FROM button_images')}
-        return {'goals':None,**value,'buttons':[{**b,'has_image':b['id'] in images} for b in value['buttons']]}
+        return {'goals':None,'missing_nutrients_as_zero':False,**value,'buttons':[{**b,'has_image':b['id'] in images} for b in value['buttons']]}
 
     @app.get('/settings',dependencies=[Depends(auth)])
     async def get_settings(): return settings()
@@ -210,4 +238,4 @@ def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_inta
         with db() as c: records=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
         records=[e for e in records if not e.get('recipe_id')]
         daily=[e for e in records if start<=datetime.fromisoformat(e['timestamp'])<end]
-        return {**summarize(daily),'current_bac':current_bac(records,settings()['bac'],datetime.now(timezone.utc))}
+        return {**summarize(daily,settings()['missing_nutrients_as_zero']),'current_bac':current_bac(records,settings()['bac'],datetime.now(timezone.utc))}

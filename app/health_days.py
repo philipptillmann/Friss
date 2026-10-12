@@ -1,5 +1,6 @@
 """Immutable daily export batches; Health writes happen on the iPhone."""
-from . import bls_units
+from . import bls_units, nutrient_policy
+from . import home
 import hashlib
 import json
 from datetime import date, datetime, time, timedelta
@@ -40,6 +41,7 @@ def install(app, db, auth):
     async def days(tz: str='UTC'):
         zone=zone_for(tz)
         with db() as c:
+            missing_as_zero=nutrient_policy.enabled(connection=c)
             records=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
             batches=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM health_days')]
         known={datetime.fromisoformat(e['timestamp']).astimezone(zone).date() for e in records if not e.get('recipe_id')}
@@ -48,8 +50,8 @@ def install(app, db, auth):
         for day in sorted(known,reverse=True):
             entries=daily(records,day,zone)
             batch=next((b for b in batches if b['day']==day.isoformat() and b['timezone']==tz),None)
-            reason=blocked(entries)
-            result.append({'day':day.isoformat(),'entries':len(entries),'status':batch['status'] if batch else 'not_exported','changed':bool(batch and batch['fingerprint']!=fingerprint(entries)), 'blocked':None if batch else reason,'batch_id':batch['id'] if batch else None})
+            reason=blocked([home.interpreted_entry(e,missing_as_zero) for e in entries])
+            result.append({'missing_nutrients_as_zero':missing_as_zero,'day':day.isoformat(),'entries':len(entries),'status':batch['status'] if batch else 'not_exported','changed':bool(batch and (batch['fingerprint']!=fingerprint(entries) or batch.get('missing_nutrients_as_zero',False)!=missing_as_zero)), 'blocked':None if batch else reason,'batch_id':batch['id'] if batch else None})
         return result
 
     @app.post('/health-days/prepare', dependencies=[Depends(auth)])
@@ -59,15 +61,16 @@ def install(app, db, auth):
             c.execute('BEGIN IMMEDIATE')
             old=c.execute('SELECT payload FROM health_days WHERE day=? AND timezone=?',(body.day.isoformat(),body.timezone)).fetchone()
             if old: raise HTTPException(409, 'Day already reserved or exported; review Apple Health before corrections')
+            missing_as_zero=nutrient_policy.enabled(connection=c)
             records=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
             entries=daily(records,body.day,zone)
-            reason=blocked(entries)
+            reason=blocked([home.interpreted_entry(e,missing_as_zero) for e in entries])
             reserved={eid for r in c.execute('SELECT payload FROM health_days') for eid in json.loads(r['payload'])['entry_ids']}
             if any(e['id'] in reserved for e in entries): reason='previous_export'
             if reason: raise HTTPException(409, reason)
             totals={}
             for e in entries:
-                for key,n in e['nutrients'].items():
+                for key,n in home.interpreted_entry(e,missing_as_zero)['nutrients'].items():
                     unit=n['unit'];value=n['value']
                     # BLS food water is a mass, not a logged drink volume.
                     # Keep it visible in Friss; export only explicit water volumes.
@@ -76,9 +79,10 @@ def install(app, db, auth):
                         value*=dict(g=1,mg=.001,mcg=.000001)[unit];unit='g'
                     if key in totals and totals[key]['unit']!=unit: raise HTTPException(409,'Incompatible nutrient units')
                     totals.setdefault(key,{'value':0,'unit':unit})['value']+=value
+                    if n.get('assumed'):totals[key]['assumed']=True
             # Samples are day totals, represented at local noon, never a predicted BAC.
             timestamp=datetime.combine(body.day,time(12),zone).isoformat()
-            batch={'id':str(uuid4()),'day':body.day.isoformat(),'timezone':body.timezone,'status':'prepared','fingerprint':fingerprint(entries),'export_token':str(uuid4()),'samples':[{'identifier':k,'value':v['value'],'unit':v['unit'],'timestamp':timestamp} for k,v in sorted(totals.items())],'entry_ids':[e['id'] for e in entries],'confirmation_source':None}
+            batch={'missing_nutrients_as_zero':missing_as_zero,'id':str(uuid4()),'day':body.day.isoformat(),'timezone':body.timezone,'status':'prepared','fingerprint':fingerprint(entries),'export_token':str(uuid4()),'samples':[{'identifier':k,'value':v['value'],'unit':v['unit'],'timestamp':timestamp,**({'assumed':True} if v.get('assumed') else {})} for k,v in sorted(totals.items())],'entry_ids':[e['id'] for e in entries],'confirmation_source':None}
             c.execute('INSERT INTO health_days VALUES(?,?,?,?)',(batch['id'],batch['day'],batch['timezone'],json.dumps(batch)))
             for e in entries:
                 e.update(health_status='claimed',export_token=batch['export_token'])

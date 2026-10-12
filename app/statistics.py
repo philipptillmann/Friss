@@ -4,10 +4,11 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import Depends, HTTPException, Query
 from .home import summarize
+from . import nutrient_policy
 
 METRICS={'energy_kcal':('dietaryEnergyConsumed','kcal'),'protein_g':('dietaryProtein','g'),'carbohydrates_g':('dietaryCarbohydrates','g'),'fat_g':('dietaryFatTotal','g')}
 
-def build_statistics(records,start,end,zone):
+def build_statistics(records,start,end,zone,missing_as_zero=False):
     groups={}
     day=start
     while day<=end:
@@ -19,7 +20,7 @@ def build_statistics(records,start,end,zone):
         if day in groups: groups[day].append(e)
     daily=[]
     for day,entries in groups.items():
-        summary=summarize(entries)
+        summary=summarize(entries,missing_as_zero)
         known={r['key']:r for r in summary['nutrients']}
         values={};partial={}
         for metric,(key,unit) in METRICS.items():
@@ -45,4 +46,4 @@ def install(app,db,auth):
         try: zone=ZoneInfo(tz)
         except (ZoneInfoNotFoundError,ValueError): raise HTTPException(422,'Unknown timezone')
         with db() as c: records=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
-        return build_statistics(records,start,end,zone)
+        return build_statistics(records,start,end,zone,nutrient_policy.enabled(db))

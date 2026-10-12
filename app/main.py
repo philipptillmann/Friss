@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from . import authentication as login_auth
-from . import bls_units
+from . import bls_units, nutrient_policy
 import time
 import secrets
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -73,10 +73,10 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.15.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.16.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
-OFF_MAP = {'energy-kcal':('dietaryEnergyConsumed','kcal'), 'carbohydrates':('dietaryCarbohydrates','g'), 'fiber':('dietaryFiber','g'), 'sugars':('dietarySugar','g'), 'fat':('dietaryFatTotal','g'), 'saturated-fat':('dietaryFatSaturated','g'), 'proteins':('dietaryProtein','g'), 'sodium':('dietarySodium','g'), 'caffeine':('dietaryCaffeine','g')}
+OFF_MAP = nutrient_policy.OFF_MAP
 
 class Quantity(BaseModel):
     value: float = Field(gt=0, allow_inf_nan=False)
@@ -242,10 +242,12 @@ async def create(entry: Entry):
 async def entries(status: str | None=None, limit:int=Query(default=100,ge=1,le=1000), start:datetime | None=None, end:datetime | None=None):
     with db() as c:
         rows=c.execute('SELECT payload FROM entries ORDER BY rowid DESC').fetchall()
+    missing_as_zero=nutrient_policy.enabled(db)
     result=[json.loads(r['payload']) for r in rows]
     if any(t is not None and t.utcoffset() is None for t in (start,end)):
         raise HTTPException(422, 'Date filters require timezone')
-    return [e for e in result if not e.get('recipe_id') and (status is None or e['status']==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
+    selected=[e for e in result if not e.get('recipe_id') and (status is None or ('processed' if missing_as_zero and nutrient_policy.ready(e) else e['status'])==status) and (start is None or datetime.fromisoformat(e['timestamp'])>=start) and (end is None or datetime.fromisoformat(e['timestamp'])<end)][:limit]
+    return [home.interpreted_entry(e,missing_as_zero) for e in selected]
 
 @app.delete('/entries', dependencies=[Depends(auth)])
 async def reset_day(start: datetime, end: datetime):
@@ -271,12 +273,12 @@ async def delete_entry(id: UUID):
 
 @app.get('/entries/{id}', dependencies=[Depends(auth)])
 async def get_entry(id: UUID):
-    return load_entry(id)
+    return home.interpreted_entry(load_entry(id),nutrient_policy.enabled(db))
 
 @app.get('/entries/{id}/details', dependencies=[Depends(auth)])
 async def entry_details(id: UUID):
     e=load_entry(id)
-    return {**e,'contributions':home.nutrient_values(e)}
+    return {**home.interpreted_entry(e,nutrient_policy.enabled(db)),'contributions':home.nutrient_values(e,nutrient_policy.enabled(db))}
 
 class EntryTime(BaseModel):
     timestamp: datetime
@@ -376,11 +378,12 @@ async def claim(id:UUID):
         if not row:
             raise HTTPException(404,'Entry not found')
         e=json.loads(row['payload'])
-        if e.get('recipe_id') or day_export_reserved(e['id']) or e['status']!='processed' or e['health_status']!='pending' or bls_units.blocked(e) or not bls_units.exportable(e):
+        effective=home.interpreted_entry(e,nutrient_policy.enabled(connection=c))
+        if e.get('recipe_id') or day_export_reserved(e['id']) or effective['status']!='processed' or e['health_status']!='pending' or bls_units.blocked(e) or not bls_units.exportable(effective):
             raise HTTPException(409,'Entry not exportable')
-        e.update(health_status='claimed', export_token=str(uuid4()))
+        e.update(health_status='claimed', export_token=str(uuid4()),health_export_nutrients=bls_units.exportable(effective),health_export_missing_as_zero=nutrient_policy.enabled(connection=c))
         c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
-    return {**e,'nutrients':bls_units.exportable(e)}
+    return {**e,'nutrients':e['health_export_nutrients']}
 
 def day_export_reserved(id):
     with db() as c:
@@ -487,7 +490,8 @@ def recipe_details(recipe):
         ingredients=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
     ingredients=[e for e in ingredients if e.get('recipe_id')==recipe['id']]
     additions=any(recipe.get(k,0)>0 for k in ['added_water_ml','added_caffeine_mg','added_ethanol_g'])
-    ready=(bool(ingredients) or additions) and all(e['status']=='processed' for e in ingredients)
+    missing_as_zero=nutrient_policy.enabled(db)
+    ready=(bool(ingredients) or additions) and all(nutrient_policy.ready(e) if missing_as_zero else e['status']=='processed' for e in ingredients)
     totals={}
     # A nutrient absent from any ingredient is unknown for the entire recipe.
     keys=set.intersection(*(set(e.get('nutrients',{})) for e in ingredients)) if ingredients else set()
@@ -511,7 +515,11 @@ def recipe_details(recipe):
     if caffeine: totals['dietaryCaffeine']={'value':caffeine,'unit':'mg'}
     if water: totals['dietaryWater']={'value':water,'unit':'ml'}
     blocked=any(bls_units.blocked(e) for e in ingredients)
-    return {**recipe,'ethanol_g':ethanol,'drinking_water_ml':water,'ingredients':ingredients,'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
+    raw_totals=totals
+    if ready and missing_as_zero:
+        pseudo={'type':'recipe','status':'processed','quantity':{'value':1,'unit':'fraction'},'nutrients':totals,'recipe_snapshot':{**recipe,'ingredients':ingredients}}
+        totals={k:v for k,v in home.nutrient_values(pseudo,True).items() if v.get('value') is not None and v.get('unit')}
+    return {**recipe,'raw_nutrients':raw_totals,'raw_ingredients':ingredients,'ethanol_g':ethanol,'drinking_water_ml':water,'ingredients':[home.interpreted_entry(e,missing_as_zero) for e in ingredients],'status':'ready' if ready else 'needs_review','nutrients':totals if ready else {},'health_blocked':blocked,'warnings':list(dict.fromkeys(w for e in ingredients for w in e.get('warnings',[])))}
 
 @app.post('/recipes', status_code=201, dependencies=[Depends(auth)])
 async def create_recipe(body: Recipe):
@@ -565,7 +573,7 @@ async def recipe_intake(id:UUID, body:RecipeIntake):
     if body.unit=='g' and not r['finished_weight_g']:
         raise HTTPException(422,'Set finished recipe weight before logging grams')
     factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount
-    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':r,'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
+    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':{**{k:v for k,v in r.items() if k not in ('raw_nutrients','raw_ingredients')},'nutrients':r['raw_nutrients'],'ingredients':r['raw_ingredients']},'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['raw_nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
     ethanol=r['ethanol_g']
     if r['drinking_water_ml']: e['drinking_water_ml']=r['drinking_water_ml']*factor
     if ethanol: e['ethanol_g']=ethanol*factor
