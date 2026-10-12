@@ -4,7 +4,7 @@ Object.assign(words.en,{alcoholJournalHint:'Drinks are saved to your journal. Th
 (function(){
  let data=null,prefs=null,generation=0,attempt=null,quickAttempt=null,inFlight=false,sessionGeneration=0;
  const el=id=>document.getElementById(id);
- const fmt=(value,digits=3)=>new Intl.NumberFormat(lang,{maximumFractionDigits:digits}).format(value);
+ const fmt=(value,digits=2)=>new Intl.NumberFormat(lang,{maximumFractionDigits:Math.min(2,digits)}).format(value);
  const timeText=time=>new Date(time).toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit'});
  function now(){const d=new Date();el('alcoholTime').value=new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,19);}
  function fields(){const grams=el('alcoholMode').value==='g';el('alcoholAmountLabel').textContent=t(grams?'alcoholGrams':'volume');el('alcoholABVLabel').hidden=grams;el('alcoholABV').required=!grams;el('alcoholABV').disabled=grams||!!attempt||!!quickAttempt;const amount=Number(el('alcoholAmount').value),abv=Number(el('alcoholABV').value);el('alcoholPreview').textContent=amount>0?fmt(grams?amount:amount*abv/100*.789)+' g '+t('alcohol'):'';}

@@ -39,7 +39,7 @@ function buildManualFields(){
  const label=document.createElement('label');label.htmlFor='manualValue-'+field.key;label.dataset.manualNutrient=field.key;label.textContent=nutrientLabel(field.key);
  const input=document.createElement('input');input.id=label.htmlFor;input.type='number';input.min='0';input.step='any';
  const unit=document.createElement('select');unit.id='manualUnit-'+field.key;unit.setAttribute('aria-label',nutrientLabel(field.key)+' · unit');
- for(const name of field.units){const option=document.createElement('option');option.value=name;option.textContent=name;unit.append(option);}unit.value=field.unit;
+ for(const name of field.units){const option=document.createElement('option');option.value=name;option.textContent=name==='mcg'?'µg':name;unit.append(option);}unit.value=field.unit;
  row.append(label,input,unit);$('manualNutrientFields').append(row);
  }
  manualFieldsReady=true;

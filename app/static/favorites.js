@@ -2,7 +2,7 @@ Object.assign(words.de,{favorites:'Favoriten',recentIngredients:'Zuletzt benutzt
 Object.assign(words.en,{favorites:'Favorites',recentIngredients:'Recently used',filterIngredients:'Filter foods',reuseHint:'Select, check the amount and time, then save. The last 100 distinct foods from the journal and recipe ingredients.',manageFavorites:'Manage favorites',favoriteHint:'Manage templates with suggested amounts. Editing or deleting does not change logged meals.',newFavorite:'New favorite',editFavorite:'Edit favorite',fromRecent:'Use a recently used ingredient',noRecent:'No reusable ingredients yet.',noFavorites:'No favorites yet. Add them on the Favorites page.',useIngredient:'Use',edit:'Edit',confirmDeleteFavorite:'Really delete this favorite? Logged entries will be kept.',reusePending:'Please save or cancel the pending entry first.',recipeIngredient:'Recipe ingredient',dailyIngredient:'Journal',favoriteChosen:'Filled in. Check the amount and time, then save.',reusableLoadError:'Could not load recently used foods / favorites.'});
 let recentIngredients=[],favoriteItems=[],reuseMode=null,reuseGeneration=0,favoriteEditing=null,favoriteDraft=null,favoriteSearchGeneration=0;
 function reusableName(item){return item.label||item['name_'+lang]||item.entry.description||item.entry.barcode||t(item.entry.drink)||'—';}
-function reusableAmount(item){const q=item.entry.quantity;return q?q.value+' '+q.unit:'—';}
+function reusableAmount(item){const q=item.entry.quantity;return q?formatHome(q.value)+' '+q.unit:'—';}
 async function loadReusable(){
  const generation=++reuseGeneration;
  try{

@@ -25,9 +25,9 @@ const standardKeys=['dietaryEnergyConsumed','dietaryProtein','dietaryCarbohydrat
 let homeState=null,homePreferences=null,buttonEdit='',buttonImageVersion=0,settingsInitialized=false,quickSearchGeneration=0,homeLoadGeneration=0,preferencesGeneration=0;
 let homeContributorMetric=null;
 const customAttempts={};
-function formatHome(value){return new Intl.NumberFormat(lang,{maximumSignificantDigits:5}).format(value);}
+function formatHome(value){return new Intl.NumberFormat(lang,{maximumFractionDigits:2}).format(value);}
 function nutrientLabel(key){return nutritionNames[key]?.[lang==='de'?0:1]||key.replace(/^dietaryVitamin/,'Vitamin ').replace(/^dietary/,'');}
-function nutrientText(row){if(!row)return '—';const values=row.values.map(v=>{let value=v.value,unit=v.unit;if(unit==='g'&&!['dietaryProtein','dietaryCarbohydrates','dietaryFatTotal','dietaryFatSaturated','dietarySugar','dietaryFiber','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryWater'].includes(row.key)){const micro=['dietaryVitaminA','dietaryVitaminD','dietaryVitaminK','dietaryVitaminB12','dietaryFolate','dietaryBiotin','dietaryChromium','dietaryIodine','dietaryMolybdenum','dietarySelenium'];const scale=micro.includes(row.key)?1e6:1000;value*=scale;unit=scale===1e6?'mcg':'mg';}return formatHome(value)+' '+(unit||t('sourceUnits'));});if(row.qualifiers.length)values.push(row.qualifiers.join(', '));return (values.join(' / ')||'—')+(row.partial&&row.values.length?' · '+t('partial'):'');}
+function nutrientText(row){if(!row)return '—';const values=row.values.map(v=>{let value=v.value,unit=v.unit;if(unit==='g'&&!['dietaryProtein','dietaryCarbohydrates','dietaryFatTotal','dietaryFatSaturated','dietarySugar','dietaryFiber','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryWater'].includes(row.key)){const micro=['dietaryVitaminA','dietaryVitaminD','dietaryVitaminK','dietaryVitaminB12','dietaryFolate','dietaryBiotin','dietaryChromium','dietaryIodine','dietaryMolybdenum','dietarySelenium'];const scale=micro.includes(row.key)?1e6:1000;value*=scale;unit=scale===1e6?'mcg':'mg';}return formatHome(value)+' '+(unit==='mcg'?'µg':unit||t('sourceUnits'));});if(row.qualifiers.length)values.push(row.qualifiers.join(', '));return (values.join(' / ')||'—')+(row.partial&&row.values.length?' · '+t('partial'):'');}
 function tableRow(parent,label,value,metric=null){const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=label;const td=document.createElement('td');if(metric)td.append(homeAmountButton(value,metric));else td.textContent=value;tr.append(th,td);parent.append(tr);}
 function renderHome(){
  renderGoals();
@@ -45,7 +45,7 @@ function renderHome(){
  $('customQuickButtons').replaceChildren();
  for(const b of homePreferences.buttons){
   const button=document.createElement('button');button.type='button';button.className='quickTile';
-  const description=b.label+' · '+b.entry.quantity.value+' '+b.entry.quantity.unit+(b.entry.caffeine_mg!=null?' · '+b.entry.caffeine_mg+' mg '+t('caffeine'):'')+(b.entry.alcohol_abv!=null?' · '+b.entry.alcohol_abv+' % vol':'');
+  const description=b.label+' · '+formatHome(b.entry.quantity.value)+' '+b.entry.quantity.unit+(b.entry.caffeine_mg!=null?' · '+formatHome(b.entry.caffeine_mg)+' mg '+t('caffeine'):'')+(b.entry.alcohol_abv!=null?' · '+formatHome(b.entry.alcohol_abv)+' % vol':'');
   button.setAttribute('aria-label',description);button.title=description;
   if(b.has_image){const img=document.createElement('img');img.src='/quick-buttons/'+b.id+'/image?v='+buttonImageVersion;img.alt='';img.loading='lazy';img.onerror=()=>{img.replaceWith(quickPictogram(b.entry));};button.append(img);}else button.append(quickPictogram(b.entry));
   button.onclick=()=>addCustomQuick(b,button);$('customQuickButtons').append(button);

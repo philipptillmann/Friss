@@ -1,3 +1,8 @@
+## 1.18.1 — Nährwertanzeige
+
+- Angezeigte Zahlen mit maximal zwei Nachkommastellen, Mikrogramm als µg. Berechnung und gespeicherte Werte behalten ihre Genauigkeit.
+- Wasser in Lebensmitteln ohne separat gezähltes Trinkwasser; Rezeptzutaten und Beitragslisten werden dabei berücksichtigt.
+
 ## 1.18.0 — JSON-Import für externe Foto-/Texterkennung
 
 - Kopierbare ChatGPT-Vorlage, JSON-Dateiupload und Einfügen von Text auf Mahlzeiten- und Rezeptseiten, ohne KI-Anbindung oder API-Gebühren.

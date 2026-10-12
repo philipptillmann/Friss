@@ -107,6 +107,27 @@ def nutrient_values(e,missing_as_zero=False):
     if missing_as_zero and nutrient_policy.ready(e):values=nutrient_policy.fill(values,'ml' if e['type']=='drink' else 'g')
     return values
 
+def food_water_values(e, missing_as_zero=False):
+    """Water remaining in food, excluding separately recorded drinking water.
+
+    Recipe snapshots retain food water even when explicit drinking water replaced
+    the recipe's dietaryWater field. Never subtract volume from BLS water mass.
+    """
+    if e.get('drink') == 'water':
+        return [{'value': 0, 'unit': 'g'}]
+    if e.get('recipe_snapshot'):
+        r=e['recipe_snapshot'];q=e['quantity']
+        factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']
+        terms=[term for ingredient in r['ingredients'] for term in food_water_values(ingredient,missing_as_zero)]
+        return [{**term,'value':term['value']*factor if term.get('value') is not None else None} for term in terms] or ([{'value':0,'unit':'g'}] if e.get('drinking_water_ml',0)>0 else [])
+    term=nutrient_values(e,missing_as_zero).get('dietaryWater')
+    if not term:return []
+    term=dict(term)
+    if term.get('unit')=='ml' and term.get('value') is not None:
+        term['value']=max(0,term['value']-e.get('drinking_water_ml',0))
+    return [term]
+
+
 def interpreted_entry(e,missing_as_zero=False):
     if not missing_as_zero or not nutrient_policy.ready(e):return e
     values=nutrient_values(e,True)
@@ -126,12 +147,20 @@ def summarize(day_entries,missing_as_zero=False):
     foods=[e for e in day_entries if e['type']!='drink']
     calculated=[e for e in foods if e['status']=='processed']
     all_sources=[nutrient_values(e,missing_as_zero) if e['status']=='processed' else {} for e in foods]
+    for e,values in zip(foods,all_sources):
+        if e['status']!='processed':continue
+        terms=food_water_values(e,missing_as_zero)
+        if terms:
+            # Preserve all units and unknown qualifiers for totals and contributors.
+            values['dietaryWater']={'terms':terms}
+        else:values.pop('dietaryWater',None)
     source=[v for e,v in zip(foods,all_sources) if e['status']=='processed']
     keys={'dietary'+n for n in ALL_NUTRIENTS}|set().union(*(set(v) for v in source))
     result=[]
     for key in sorted(keys):
-        parts=[v[key] for v in source if key in v and v[key].get('value') is not None]
-        qualifiers=list(dict.fromkeys(str(v[key].get('qualifier')) for v in source if key in v and v[key].get('qualifier') is not None))
+        items=[term for v in source if key in v for term in v[key].get('terms',[v[key]])]
+        parts=[v for v in items if v.get('value') is not None]
+        qualifiers=list(dict.fromkeys(str(v.get('qualifier')) for v in items if v.get('qualifier') is not None))
         # Keep confirmed values and legacy source values separate; never combine their units.
         groups={}
         for part in parts:
@@ -140,11 +169,13 @@ def summarize(day_entries,missing_as_zero=False):
         contributors=[]
         for e,entry_values in zip(foods,all_sources):
             item=entry_values.get(key)
-            vals=[{'value':item['value'],'unit':item.get('unit')}] if item and item.get('value') is not None else []
-            record=contribution_entry(e,vals,bool(item and item.get('assumed')))
-            if item and item.get('qualifier') is not None:record['qualifier']=item['qualifier']
+            terms=item.get('terms',[item]) if item else []
+            vals=[{'value':v['value'],'unit':v.get('unit')} for v in terms if v.get('value') is not None]
+            record=contribution_entry(e,vals,any(v.get('assumed',False) for v in terms))
+            qualifier=' / '.join(str(v['qualifier']) for v in terms if v.get('qualifier') is not None)
+            if qualifier:record['qualifier']=qualifier
             contributors.append(record)
-        result.append({'contributors':contributors,'key':key,'values':[{'value':v,'unit':u} for u,v in groups.items()], 'covered':len(parts),'total':len(foods),'partial':len(parts)<len(foods),'qualifiers':qualifiers})
+        result.append({'contributors':contributors,'key':key,'values':[{'value':v,'unit':u} for u,v in groups.items()], 'covered':sum(any(t.get('value') is not None for t in v.get(key,{}).get('terms',[v.get(key,{})])) for v in source),'total':len(foods),'partial':len(calculated)<len(foods) or any(key not in v or any(t.get('value') is None for t in v[key].get('terms',[v[key]])) for v in source),'qualifiers':qualifiers})
     caffeine=0;water=0;drink_contributors={'caffeine_mg':[],'ethanol_g':[],'drinking_water_ml':[]}
     for e in day_entries:
         if e['status']!='processed': continue

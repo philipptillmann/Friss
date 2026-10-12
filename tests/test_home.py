@@ -106,3 +106,21 @@ class HomeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.status_code,200)
         self.assertEqual(result.json()['drinking_water_ml'],250)
         self.assertEqual((await self.client.get('/home-summary',params={'start':'2026-10-04T00:00:00','end':'2026-10-05T00:00:00'})).status_code,422)
+
+class FoodWaterDisplayTests(unittest.TestCase):
+    def test_recipe_food_water_excludes_explicit_drinking_water(self):
+        ingredient={'type':'food','status':'processed','nutrients':{'dietaryWater':{'value':80.12345,'unit':'g'}}}
+        water={'type':'drink','drink':'water','status':'processed','nutrients':{'dietaryWater':{'value':200,'unit':'ml'}}}
+        recipe={'type':'recipe','status':'processed','quantity':{'value':1,'unit':'portion'},'nutrients':{'dietaryWater':{'value':150,'unit':'ml'}},'drinking_water_ml':150,'recipe_snapshot':{'servings':2,'ingredients':[ingredient,water]}}
+        result=home.summarize([recipe])
+        row=next(v for v in result['nutrients'] if v['key']=='dietaryWater')
+        self.assertEqual(result['drinking_water_ml'],150)
+        self.assertEqual(row['values'],[{'value':40.061725,'unit':'g'}])
+        self.assertEqual(sum(v['value'] for c in row['contributors'] for v in c['values']),40.061725)
+        self.assertEqual(recipe['nutrients']['dietaryWater']['value'],150)
+
+    def test_only_overlapping_volume_is_removed(self):
+        e={'type':'food','status':'processed','drinking_water_ml':100,'nutrients':{'dietaryWater':{'value':120,'unit':'ml'}}}
+        self.assertEqual(home.food_water_values(e),[{'value':20,'unit':'ml'}])
+        e['nutrients']['dietaryWater']['unit']='g'
+        self.assertEqual(home.food_water_values(e),[{'value':120,'unit':'g'}])

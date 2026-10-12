@@ -39,3 +39,6 @@ const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:
  assert.equal(vm.runInContext('homePreferences.missing_nutrients_as_zero',context),false);assert.equal($('homeZeroHint').hidden,true);
  console.log('Goal form save, progress display and delayed refresh checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
+assert.equal(vm.runInContext('formatHome(0.28975)',context), '0,29');
+assert.equal(vm.runInContext("nutrientText({key:'dietaryVitaminB12',values:[{value:1.2942,unit:'mcg'}],qualifiers:[],partial:false})",context), '1,29 µg');
