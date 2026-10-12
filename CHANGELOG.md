@@ -1,3 +1,11 @@
+## 1.15.0 — FoodData-Importer für eigene Zutaten
+
+- Import per FoodData Explorer-Link: Nährwerte pro 100 g automatisch in die manuelle Eingabemaske übernehmen, vor dem Speichern prüfen und bearbeiten.
+- Explizite Einheitenumrechnung, bekannte Nullwerte erhalten, fehlende / nicht unterstützte Werte nicht schätzen; Varianten nicht addieren.
+- Quelle, Zeitpunkt und veröffentlichte Rohwerte dauerhaft in der Zutat und gebuchten Snapshots erhalten.
+- Lebensmittelwasser als g unterstützen; USDA-Kohlenhydratdefinition kennzeichnen.
+- API- und UI-Tests für den verlinkten Zimt-Datensatz, Speicherung, Umrechnung, Abruffehler und verspätete Antworten.
+
 ## 1.14.0 — Alkohol direkt ins Tagebuch
 
 - Separate Simulation ersetzt durch Getränkeerfassung: reiner Alkohol in g oder ml und Volumenprozent, Name und bearbeitbare Uhrzeit.

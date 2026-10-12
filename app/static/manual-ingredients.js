@@ -1,6 +1,6 @@
 Object.assign(words.de,{manualIngredients:'Eigene Zutaten',chooseManual:'Eigene Zutat auswählen',manageManual:'Eigene Zutaten verwalten',manualIntro:'Eigene Lebensmittel mit Nährwerten pro 100 g speichern und in Mahlzeiten oder Rezepten verwenden.',newManual:'Neue Zutat',editManual:'Zutat bearbeiten',manualNameDe:'Name (Deutsch)',manualNameEn:'Name (Englisch)',per100g:'Nährwerte pro 100 g',manualValuesHint:'Nur bekannte Werte eintragen. Leer bleibt unbekannt; 0 bedeutet einen bekannten Nullwert. Energie wird nicht aus Makros geschätzt. Änderungen gelten für künftig hinzugefügte Einträge.',manualAlcohol:'Reiner Alkohol (g pro 100 g)',noManual:'Noch keine eigenen Zutaten angelegt.',confirmDeleteManual:'Eigene Zutat wirklich löschen? Bereits gespeicherte Mahlzeiten und Rezeptzutaten behalten ihre Nährwerte.',manualSnapshot:'Gespeicherter Stand der Zutat',manualNeedNutrient:'Bitte mindestens einen Nährwert eintragen.',manualLoadError:'Eigene Zutaten konnten nicht geladen werden.'});
 Object.assign(words.en,{manualIngredients:'My ingredients',chooseManual:'Choose my ingredient',manageManual:'Manage my ingredients',manualIntro:'Save your own foods with nutrients per 100 g, then use them in meals or recipes.',newManual:'New ingredient',editManual:'Edit ingredient',manualNameDe:'Name (German)',manualNameEn:'Name (English)',per100g:'Nutrients per 100 g',manualValuesHint:'Enter known values only. Empty means unknown; 0 means a known zero. Energy is not estimated from macros. Changes apply to future entries.',manualAlcohol:'Pure alcohol (g per 100 g)',noManual:'No ingredients added yet.',confirmDeleteManual:'Really delete this ingredient? Logged meals and recipe ingredients will retain their values.',manualSnapshot:'Recorded ingredient version',manualNeedNutrient:'Please enter at least one nutrient.',manualLoadError:'Could not load your ingredients.'});
-let manualItems=[],manualSchema=[],manualEditing=null,manualDraft=null,manualGeneration=0,manualRestoredEntry=null,manualFieldsReady=false;
+let manualItems=[],manualSchema=[],manualEditing=null,manualDraft=null,manualGeneration=0,manualRestoredEntry=null,manualFieldsReady=false,manualImportGeneration=0,manualSource=null,manualImportPending=false;
 function manualName(item){return item['name_'+lang]||item.name_de;}
 function renderManualChoices(){
  for(const id of ['manualCaptureSelect','favoriteManual']){
@@ -62,10 +62,11 @@ async function loadManualIngredients(){
  try{
  const [items,schema]=await Promise.all([api('/manual-ingredients'),api('/manual-ingredients/schema')]);
  if(generation!==manualGeneration||$('dashboard').hidden)return;
- manualItems=items;manualSchema=schema;buildManualFields();renderManualList();renderManualChoices();$('manualSave').disabled=false;
+ manualItems=items;manualSchema=schema;buildManualFields();renderManualList();renderManualChoices();$('manualSave').disabled=false;$('manualImportButton').disabled=manualImportPending;
  }catch(e){if(generation===manualGeneration)message(t('manualLoadError')+' '+e.message,true);}
 }
 function editManual(item=null){
+ manualImportGeneration++;manualSource=item?.source||null;
  manualEditing=item;manualDraft=null;$('manualForm').reset();$('manualEditorTitle').textContent=t(item?'editManual':'newManual');
  $('manualNameDe').value=item?.name_de||'';$('manualNameEn').value=item?.name_en||'';$('manualNotes').value=item?.notes||'';$('manualEthanol').value=item?.ethanol_g_per100??'';
  for(const field of manualSchema){$('manualValue-'+field.key).value=item?.nutrients[field.key]?.value??'';$('manualUnit-'+field.key).value=item?.nutrients[field.key]?.unit||field.unit;}
@@ -76,7 +77,7 @@ $('manualForm').onsubmit=async event=>{
  try{
  const nutrients={};for(const field of manualSchema){const input=$('manualValue-'+field.key);if(input.value!=='')nutrients[field.key]={value:Number(input.value),unit:$('manualUnit-'+field.key).value};}
  const alcohol=$('manualEthanol').value;if(!Object.keys(nutrients).length&&alcohol==='')throw Error(t('manualNeedNutrient'));
- const body={name_de:$('manualNameDe').value.trim(),name_en:$('manualNameEn').value.trim(),notes:$('manualNotes').value,nutrients,ethanol_g_per100:alcohol===''?null:Number(alcohol),version:manualEditing?.version??0};
+ const body={name_de:$('manualNameDe').value.trim(),name_en:$('manualNameEn').value.trim(),notes:$('manualNotes').value,nutrients,ethanol_g_per100:alcohol===''?null:Number(alcohol),version:manualEditing?.version??0,source:manualSource};
  if(manualEditing)await api('/manual-ingredients/'+manualEditing.id,{method:'PUT',body:JSON.stringify(body)});
  else{manualDraft??=uuid();await api('/manual-ingredients',{method:'POST',body:JSON.stringify({id:manualDraft,...body})});}
  editManual();await loadManualIngredients();message(t('saved'));
@@ -89,9 +90,35 @@ async function deleteManual(item){
 }
 $('newManual').onclick=()=>editManual();$('manualCancel').onclick=()=>editManual();$('manualFilter').oninput=renderManualList;
 $('manualCaptureSelect').onchange=updateManualCaptureInfo;
-$('manualSave').disabled=true;
+$('manualSave').disabled=true;$('manualImportButton').disabled=true;
 window.addEventListener('friss-data-updated',()=>{if(!$('dashboard').hidden)loadManualIngredients();});
 window.addEventListener('friss-page',()=>{if(!$('dashboard').hidden)loadManualIngredients();});
-window.addEventListener('friss-logout',()=>{manualGeneration++;manualItems=[];manualSchema=[];manualEditing=null;manualDraft=null;manualRestoredEntry=null;manualFieldsReady=false;$('manualForm').reset();$('manualNutrientFields').replaceChildren();$('manualFilter').value='';renderManualList();renderManualChoices();$('manualSave').disabled=true;});
+window.addEventListener('friss-logout',()=>{manualGeneration++;manualImportGeneration++;manualSource=null;manualImportPending=false;$('manualImportForm').reset();$('manualImportStatus').textContent='';$('manualImportButton').disabled=true;manualItems=[];manualSchema=[];manualEditing=null;manualDraft=null;manualRestoredEntry=null;manualFieldsReady=false;$('manualForm').reset();$('manualNutrientFields').replaceChildren();$('manualFilter').value='';renderManualList();renderManualChoices();$('manualSave').disabled=true;});
 new MutationObserver(()=>{renderManualList();renderManualChoices();for(const label of document.querySelectorAll('[data-manual-nutrient]'))label.textContent=nutrientLabel(label.dataset.manualNutrient);$('manualEditorTitle').textContent=t(manualEditing?'editManual':'newManual');}).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 translate();if(!$('dashboard').hidden)loadManualIngredients();
+
+Object.assign(words.de,{manualImportURL:'FoodData-Link',manualImport:'Nährwerte importieren',manualImportHint:'Link zu fooddata.the50.store/ingredients einfügen. Import erstellt eine neue Zutat zur Prüfung; gespeichert wird erst mit Speichern. Namen kannst du anschließend anpassen.',manualImportLoading:'Nährwerte werden geladen …',manualImportDone:'Werte pro 100 g übernommen. Bitte prüfen und speichern.',manualImportError:'Import fehlgeschlagen.',manualImportReplace:'Die aktuellen Eingaben durch eine neue importierte Zutat ersetzen?',manualImportMissing:'Nicht verfügbare oder nicht unterstützte Nährwerte bleiben leer.',manualImportWater:'Wassergehalt bleibt in Gramm; keine Umrechnung in getrunkenes Wasser.',manualImportCarbs:'Die USDA-Kohlenhydrate enthalten Ballaststoffe und sind anders definiert als die verfügbaren Kohlenhydrate im BLS.',manualImportSkipped:'Nicht übernommen',manualImportOther:'Weitere Hinweise stehen in den Notizen.',manualImportCancelled:'Import nicht übernommen, weil die Eingaben inzwischen geändert wurden.'});
+Object.assign(words.en,{manualImportURL:'FoodData link',manualImport:'Import nutrients',manualImportHint:'Paste a fooddata.the50.store/ingredients link. The import creates a new ingredient for review; use Save to store it. You can edit the names afterwards.',manualImportLoading:'Loading nutrients …',manualImportDone:'Values per 100 g imported. Please review and save.',manualImportError:'Import failed.',manualImportReplace:'Replace your current input with a new imported ingredient?',manualImportMissing:'Missing or unsupported nutrients remain empty.',manualImportWater:'Food water stays in grams; no conversion to drinking water.',manualImportCarbs:'USDA carbohydrates include fibre and differ from BLS available carbohydrates.',manualImportSkipped:'Not imported',manualImportOther:'Additional information is included in the notes.',manualImportCancelled:'Import was not applied because the input changed while loading.'});
+function manualHasDraft(){return manualEditing||['manualNameDe','manualNameEn','manualNotes','manualEthanol'].some(id=>$(id).value!=='')||manualSchema.some(field=>$('manualValue-'+field.key)?.value!=='');}
+$('manualImportForm').onsubmit=async event=>{
+ event.preventDefault();if(!manualFieldsReady||manualImportPending)return;
+ if(manualHasDraft()&&!confirm(t('manualImportReplace')))return;
+ const button=$('manualImportButton'),generation=++manualImportGeneration;manualImportPending=true;button.disabled=true;$('manualImportStatus').textContent=t('manualImportLoading');
+ const url=$('manualImportURL').value.trim();
+ try{
+ const imported=await api('/manual-ingredients/import',{method:'POST',body:JSON.stringify({url})});
+ if(generation!==manualImportGeneration||$('dashboard').hidden)return;
+ editManual(imported);manualEditing=null;manualSource=imported.source;manualDraft=null;$('manualEditorTitle').textContent=t('newManual');
+ const hints=[t('manualImportDone'),t('manualImportMissing')];
+ if(imported.nutrients.dietaryWater?.unit==='g')hints.push(t('manualImportWater'));
+ if(imported.source.values.some(v=>v.name.toLowerCase()==='carbohydrate, by difference'))hints.push(t('manualImportCarbs'));
+ if(imported.skipped.length)hints.push(t('manualImportSkipped')+': '+imported.skipped.map(v=>v.name).join(', '));
+ $('manualImportStatus').textContent=hints.join(' ');$('manualForm').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){if(generation===manualImportGeneration)$('manualImportStatus').textContent=t('manualImportError')+' '+e.message;}
+ finally{manualImportPending=false;button.disabled=!manualFieldsReady;}
+};
+// Editing while a source request is pending cancels applying its result.
+function cancelStaleImport(){if(manualImportPending){manualImportGeneration++;$('manualImportStatus').textContent=t('manualImportCancelled');}}
+$('manualForm').addEventListener('input',cancelStaleImport);
+$('manualImportURL').oninput=cancelStaleImport;
+translate();

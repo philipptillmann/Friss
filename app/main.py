@@ -73,7 +73,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.14.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.15.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = {'energy-kcal':('dietaryEnergyConsumed','kcal'), 'carbohydrates':('dietaryCarbohydrates','g'), 'fiber':('dietaryFiber','g'), 'sugars':('dietarySugar','g'), 'fat':('dietaryFatTotal','g'), 'saturated-fat':('dietaryFatSaturated','g'), 'proteins':('dietaryProtein','g'), 'sodium':('dietarySodium','g'), 'caffeine':('dietaryCaffeine','g')}
@@ -603,3 +603,6 @@ manual_ingredients.install(app,db,auth)
 
 from . import alcohol
 alcohol.install(app,db,auth)
+
+from . import fooddata_import
+fooddata_import.install(app,auth)

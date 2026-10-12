@@ -5,6 +5,7 @@ from typing import Literal
 from uuid import UUID
 from fastapi import Depends,HTTPException
 from pydantic import BaseModel,Field,model_validator
+from . import fooddata_import
 from .home import ALL_NUTRIENTS
 
 NUTRIENTS={'dietary'+n for n in ALL_NUTRIENTS}|{'dietaryCaffeine'}
@@ -12,11 +13,29 @@ class Nutrient(BaseModel):
     value:float=Field(ge=0,allow_inf_nan=False)
     unit:Literal['kcal','g','mg','mcg','ml']
 
+class SourceValue(BaseModel):
+    name:str=Field(max_length=250)
+    value:float|str|None
+    unit:str=Field(max_length=32)
+
+class ImportSource(BaseModel):
+    provider:Literal['FoodData Explorer']
+    url:str=Field(max_length=2000)
+    imported_at:datetime
+    basis_g:Literal[100]
+    values:list[SourceValue]=Field(max_length=1000)
+    @model_validator(mode='after')
+    def valid(self):
+        self.url=fooddata_import.canonical_url(self.url)
+        if self.imported_at.utcoffset() is None:raise ValueError('Import timestamp requires timezone')
+        return self
+
 class ManualEdit(BaseModel):
     name_de:str=Field(min_length=1,max_length=200)
     name_en:str=Field(default='',max_length=200)
     notes:str=Field(default='',max_length=10000)
     nutrients:dict[str,Nutrient]
+    source:ImportSource|None=None
     ethanol_g_per100:float|None=Field(default=None,ge=0,le=100,allow_inf_nan=False)
     version:int=Field(ge=0)
     @model_validator(mode='after')
@@ -26,7 +45,7 @@ class ManualEdit(BaseModel):
         if not self.nutrients and self.ethanol_g_per100 is None:raise ValueError('Enter at least one nutrient')
         for key,n in self.nutrients.items():
             if key not in NUTRIENTS:raise ValueError('Unknown nutrition identifier')
-            allowed={'kcal'} if key=='dietaryEnergyConsumed' else {'ml'} if key=='dietaryWater' else {'g','mg','mcg'}
+            allowed={'kcal'} if key=='dietaryEnergyConsumed' else {'g','ml'} if key=='dietaryWater' else {'g','mg','mcg'}
             if n.unit not in allowed:raise ValueError('Invalid nutrient unit')
         return self
 
@@ -43,7 +62,7 @@ def install(app,db,auth):
     async def schema():
         macros={'dietaryProtein','dietaryCarbohydrates','dietaryFiber','dietarySugar','dietaryFatTotal','dietaryFatSaturated','dietaryFatMonounsaturated','dietaryFatPolyunsaturated'}
         micro={'dietaryVitaminA','dietaryVitaminD','dietaryVitaminK','dietaryVitaminB12','dietaryFolate','dietaryBiotin','dietaryChromium','dietaryIodine','dietaryMolybdenum','dietarySelenium'}
-        return [{'key':key,'unit':'kcal' if key=='dietaryEnergyConsumed' else 'ml' if key=='dietaryWater' else 'g' if key in macros else 'mcg' if key in micro else 'mg','units':['kcal'] if key=='dietaryEnergyConsumed' else ['ml'] if key=='dietaryWater' else ['g','mg','mcg']} for key in sorted(NUTRIENTS)]
+        return [{'key':key,'unit':'kcal' if key=='dietaryEnergyConsumed' else 'ml' if key=='dietaryWater' else 'g' if key in macros else 'mcg' if key in micro else 'mg','units':['kcal'] if key=='dietaryEnergyConsumed' else ['ml','g'] if key=='dietaryWater' else ['g','mg','mcg']} for key in sorted(NUTRIENTS)]
     @app.get('/manual-ingredients',dependencies=[Depends(auth)])
     async def listing():
         with db() as c:return [json.loads(r['payload']) for r in c.execute('SELECT payload FROM manual_ingredients ORDER BY rowid DESC')]
@@ -56,7 +75,7 @@ def install(app,db,auth):
             row=c.execute('SELECT payload FROM manual_ingredients WHERE id=?',(str(body.id),)).fetchone()
             if row:
                 old=json.loads(row['payload'])
-                if any(old[k]!=v for k,v in value.items()):raise HTTPException(409,'ID already used')
+                if any(old.get(k)!=v for k,v in value.items()):raise HTTPException(409,'ID already used')
                 return old
             value['updated_at']=datetime.now(timezone.utc).isoformat()
             c.execute('INSERT INTO manual_ingredients VALUES(?,?)',(value['id'],json.dumps(value)))
