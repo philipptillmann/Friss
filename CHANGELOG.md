@@ -1,3 +1,9 @@
+## 1.17.0 — Beiträge zu Tageswerten öffnen
+
+- Mengen auf Home und in den Zielkarten öffnen eine Liste der zugehörigen Tagebucheinträge mit Uhrzeit, verzehrter Menge und individuellem Nährwertbeitrag.
+- Unterstützt Standard- und Mikronährstoffe, Koffein, Alkoholmenge und getrunkenes Wasser; Rezeptverzehr wird einmal als gebuchte Portion gezählt.
+- Nullwerte und unbekannte Angaben separat aufklappbar; Links öffnen die jeweilige Detailseite. Gleiche Berechnung und Null-Einstellung wie die Tagesgesamtwerte.
+
 ## 1.16.1 — Nullannahmen auch für Spuren und Nachweisgrenzen
 
 - Die aktivierte Null-Einstellung erfasst nun auch TR, <LOD, <LOQ und kombinierte Angaben wie „<LOD or <LOQ“.

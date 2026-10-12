@@ -65,6 +65,30 @@ class HomeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(n['dietaryEnergyConsumed']['partial'])
         self.assertEqual(home.summarize([{'type':'drink','drink':'coffee','status':'processed','nutrients':{'dietaryCaffeine':{'value':.08,'unit':'g'}}}])['caffeine_mg'],80)
 
+    async def test_contributor_amounts_match_totals_and_recipe_exclusion(self):
+        entries=[
+            {'id':'a','type':'manual','status':'processed','timestamp':'2026-10-12T08:00:00Z','quantity':{'value':100,'unit':'g'},'description':'Breakfast','nutrients':{'dietaryProtein':{'value':10,'unit':'g'},'dietaryCaffeine':{'value':.08,'unit':'g'}}},
+            {'id':'b','type':'manual','status':'processed','timestamp':'2026-10-12T09:00:00Z','quantity':{'value':100,'unit':'g'},'description':'Snack','nutrients':{'dietaryProtein':{'value':500,'unit':'mg'}}},
+            {'id':'water','type':'drink','drink':'water','status':'processed','timestamp':'2026-10-12T10:00:00Z','nutrients':{'dietaryWater':{'value':250,'unit':'ml'}}},
+            {'id':'recipe','type':'recipe','status':'processed','timestamp':'2026-10-12T11:00:00Z','description':'Recipe meal','quantity':{'value':1,'unit':'portion'},'nutrients':{'dietaryProtein':{'value':3,'unit':'g'}},'drinking_water_ml':50,'ethanol_g':5},
+            {'id':'pending','type':'item','status':'needs_review','timestamp':'2026-10-12T12:00:00Z','quantity':None,'nutrients':{}}]
+        summary=home.summarize(entries)
+        protein=next(r for r in summary['nutrients'] if r['key']=='dietaryProtein')
+        self.assertEqual({r['id'] for r in protein['contributors']},{'a','b','recipe','pending'})
+        actual=sum(v['value']*home.MASS[v['unit']] for r in protein['contributors'] for v in r['values'])
+        self.assertEqual(actual,protein['values'][0]['value']);self.assertEqual(actual,13.5)
+        self.assertEqual(next(r for r in protein['contributors'] if r['id']=='pending')['values'],[])
+        self.assertEqual(sum(r['values'][0]['value'] for r in summary['contributors']['caffeine_mg']),summary['caffeine_mg'])
+        self.assertEqual(sum(r['values'][0]['value'] for r in summary['contributors']['drinking_water_ml']),300)
+        self.assertEqual(summary['contributors']['ethanol_g'][0]['id'],'recipe')
+        await self.client.post('/entries',json=self.payload())
+        recipe={'id':str(uuid4()),'name':'Recipe','servings':1}
+        await self.client.post('/recipes',json=recipe)
+        ingredient=self.payload(recipe_id=recipe['id']);await self.client.post('/entries',json=ingredient)
+        result=(await self.client.get('/home-summary',params={'start':'2026-10-04T00:00:00+02:00','end':'2026-10-05T00:00:00+02:00'})).json()
+        ids={r['id'] for r in result['contributors']['drinking_water_ml']}
+        self.assertNotIn(ingredient['id'],ids);self.assertEqual(len(ids),1)
+
     async def test_bac_profile_and_midnight_history(self):
         now=datetime(2026,10,10,0,30,tzinfo=timezone.utc)
         profile={'mass_kg':80,'distribution':.68,'elimination_percent_per_hour':.015,'absorption_per_hour':3}

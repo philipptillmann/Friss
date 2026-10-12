@@ -1,11 +1,11 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const elements=new Map();
-function element(){return {value:'',hidden:false,children:[],textContent:'',append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=[...nodes]},setAttribute(){},reset(){}}}
+function element(){return {value:'',hidden:false,children:[],textContent:'',append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=[...nodes]},setAttribute(){},addEventListener(){},showModal(){this.open=true},close(){this.open=false},reset(){}}}
 const $=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id)};
 $('dashboard').hidden=true;
 const context=vm.createContext({$,words:{de:{},en:{}},lang:'de',t:k=>k,document:{createElement:element,createElementNS:element,documentElement:{}},window:{addEventListener(){},dispatchEvent(){}},Event:class {},MutationObserver:class {observe(){}},setInterval(){},translate(){},recipeRows:[],currentPage:'home',localDate:()=> '2026-10-11',message(){},api:null,console});
 vm.runInContext(fs.readFileSync('app/static/home.js','utf8'),context);
-const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:'kcal'}],total:1,partial:false,qualifiers:[]}],unresolved:0,caffeine_mg:0,ethanol_g:0,drinking_water_ml:0};
+const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:'kcal'}],total:1,partial:false,qualifiers:[],contributors:[{id:'meal',name_de:'Test meal',timestamp:'2026-10-12T12:00:00Z',type:'manual',quantity:{value:100,unit:'g'},values:[{value:1000,unit:'kcal'}]}]}],unresolved:0,caffeine_mg:0,ethanol_g:0,drinking_water_ml:0};
 (async()=>{
  let prefs={version:0,buttons:[],bac:null,goals:null},release;
  context.api=async(path,options)=>{
@@ -26,6 +26,9 @@ const summary={nutrients:[{key:'dietaryEnergyConsumed',values:[{value:1000,unit:
  assert.match($('goalProgress').children[0].children[1].textContent,/2[.\s]?000 kcal/);
  assert.equal($('goalProgress').children[0].children[2].max,2000);
  assert.equal($('goalProgress').children[0].children[2].value,1000);
+ $('goalProgress').children[0].children[1].children[0].onclick();
+ assert.equal($('homeContributors').open,true);assert.equal($('homeContributorsList').children[0].href,'#entry/meal');
+ $('homeContributorsClose').onclick();assert.equal($('homeContributors').open,false);
  context.api=initialAPI;
  context.refresh=async()=>vm.runInContext('loadHome()',context);
  await vm.runInContext('loadHome()',context);

@@ -277,3 +277,10 @@ Die Rohdaten, eigenen Zutaten und gebuchten Rezept-Snapshots werden nicht übers
 Die Einstellung gilt auch für künftig vorbereitete Health-Exporte; Nullannahmen sind keine gemessenen Nullwerte. Vorbereitete Tagesbatches und bereits reservierte Einzel-Exporte behalten ihre damaligen Werte. Ein Wechsel der Einstellung markiert einen vorhandenen Tagesbatch als seit Vorbereitung verändert und gibt ihn nicht erneut zum Export frei. Lebensmittelwasser in g bleibt vom Health-Wasservolumen in ml getrennt.
 
 API-Einstellung: `missing_nutrients_as_zero` im bestehenden versionierten `/settings`-Objekt. Angenommene Werte tragen in Eintragsansichten `assumed: true`; Originaldaten bleiben in SQLite / ursprünglichen Dateien unverändert. Tests prüfen Umschalten, Neustart, Rezeptanteile, Statistik-Lücken, offene Mengen und unveränderliche Health-Batches.
+
+
+## Beiträge zu Tageswerten (1.17.0)
+
+Auf Home auf einen Kalorien-, Makro-, Mikro-, Wasser-, Koffein- oder Alkoholmengenwert tippen, auch in den Zielkarten. Eine Übersicht zeigt die heutigen Einträge mit Uhrzeit, verzehrter Menge und Beitrag zu genau diesem Wert. Ein Eintrag öffnet seine Detailseite. Nullwerte, angenommene Nullen und unbekannte Angaben stehen in einem separaten aufklappbaren Abschnitt. Rezeptportionen werden als gebuchte Einträge angezeigt, Zutaten nicht zusätzlich gezählt. BLS-Wassergehalt und getrunkenes Wasser behalten ihre getrennten Berechnungen. Der BAC ist eine Modellschätzung und keine additive Nährstoffsumme.
+
+Die Daten kommen zusammen mit der Tagesübersicht aus `/home-summary`; Contributors verwenden dieselben Einheiten, Tagesgrenzen und Null-Einstellung wie die Summe. Bei Abmeldung schließt die Übersicht und verwirft ihre Inhalte. Tests prüfen die Übereinstimmung von Einzelbeiträgen und Summen, Rezeptzutaten-Ausschluss sowie Öffnen und Schließen der Übersicht.

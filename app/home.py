@@ -113,11 +113,20 @@ def interpreted_entry(e,missing_as_zero=False):
     nutrients={k:v for k,v in values.items() if v.get('value') is not None and v.get('unit')}
     return {**e,'status':'processed','reason':None,'nutrients':nutrients,'assumed_zero_nutrients':[k for k,v in nutrients.items() if v.get('assumed')]}
 
+def contribution_entry(e,values=None,assumed=False):
+    food=e.get('food') or {}
+    return {'id':e.get('id'),'name_de':food.get('name_de') or food.get('name_en') or food.get('name_de') or food.get('product_name') or e.get('description') or e.get('barcode') or e.get('barcode'),
+            'name_en':food.get('name_en') or food.get('name_de') or food.get('product_name') or e.get('description') or e.get('barcode'),
+            'type':e['type'],'drink':e.get('drink'),'timestamp':e.get('timestamp'),'quantity':e.get('quantity'),
+            'status':e['status'],'values':values or [],'assumed':assumed}
+
+
 def summarize(day_entries,missing_as_zero=False):
     day_entries=[interpreted_entry(e,missing_as_zero) for e in day_entries]
     foods=[e for e in day_entries if e['type']!='drink']
     calculated=[e for e in foods if e['status']=='processed']
-    source=[nutrient_values(e,missing_as_zero) for e in calculated]
+    all_sources=[nutrient_values(e,missing_as_zero) if e['status']=='processed' else {} for e in foods]
+    source=[v for e,v in zip(foods,all_sources) if e['status']=='processed']
     keys={'dietary'+n for n in ALL_NUTRIENTS}|set().union(*(set(v) for v in source))
     result=[]
     for key in sorted(keys):
@@ -128,15 +137,27 @@ def summarize(day_entries,missing_as_zero=False):
         for part in parts:
             unit=part.get('unit');group='g' if unit in MASS else unit
             groups[group]=groups.get(group,0)+part['value']*(MASS[unit] if unit in MASS else 1)
-        result.append({'key':key,'values':[{'value':v,'unit':u} for u,v in groups.items()], 'covered':len(parts),'total':len(foods),'partial':len(parts)<len(foods),'qualifiers':qualifiers})
-    caffeine=0;water=0
+        contributors=[]
+        for e,entry_values in zip(foods,all_sources):
+            item=entry_values.get(key)
+            vals=[{'value':item['value'],'unit':item.get('unit')}] if item and item.get('value') is not None else []
+            record=contribution_entry(e,vals,bool(item and item.get('assumed')))
+            if item and item.get('qualifier') is not None:record['qualifier']=item['qualifier']
+            contributors.append(record)
+        result.append({'contributors':contributors,'key':key,'values':[{'value':v,'unit':u} for u,v in groups.items()], 'covered':len(parts),'total':len(foods),'partial':len(parts)<len(foods),'qualifiers':qualifiers})
+    caffeine=0;water=0;drink_contributors={'caffeine_mg':[],'ethanol_g':[],'drinking_water_ml':[]}
     for e in day_entries:
         if e['status']!='processed': continue
         n=e.get('nutrients',{}).get('dietaryCaffeine')
-        if n and n['unit'] in MASS: caffeine+=n['value']*MASS[n['unit']]*1000
-        water+=e.get('drinking_water_ml',0)
-        if e.get('drink')=='water': water+=e.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
-    return {'missing_nutrients_as_zero':missing_as_zero,'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
+        if n and n['unit'] in MASS:
+            value=n['value']*MASS[n['unit']]*1000;caffeine+=value
+            drink_contributors['caffeine_mg'].append(contribution_entry(e,[{'value':value,'unit':'mg'}],n.get('assumed',False)))
+        volume=e.get('drinking_water_ml',0)
+        if e.get('drink')=='water':volume+=e.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
+        water+=volume
+        if volume:drink_contributors['drinking_water_ml'].append(contribution_entry(e,[{'value':volume,'unit':'ml'}]))
+        if e.get('ethanol_g',0):drink_contributors['ethanol_g'].append(contribution_entry(e,[{'value':e['ethanol_g'],'unit':'g'}]))
+    return {'contributors':drink_contributors,'missing_nutrients_as_zero':missing_as_zero,'nutrients':result,'caffeine_mg':caffeine,'ethanol_g':sum(e.get('ethanol_g',0) for e in day_entries if e['status']=='processed'),'drinking_water_ml':water,'unresolved':sum(e['status']!='processed' for e in day_entries)}
 
 def current_bac(entries,profile,now):
     return alcohol.current(entries,profile,now)

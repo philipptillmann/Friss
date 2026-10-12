@@ -11,6 +11,7 @@ function renderGoals(){
  const value=values.length?values.reduce((a,v)=>a+v.value,0):homeState&&!row?.total?0:null;
  const card=document.createElement('div'),label=document.createElement('strong'),detail=document.createElement('p');card.className='goalCard';label.textContent=nutrientLabel(nutrient);
  detail.textContent=(value===null?'—':formatHome(value))+' / '+(goal?formatHome(goal)+' '+unit:t('noGoal'))+(row?.partial?' · '+t('partial'):'');
+ detail.replaceChildren(homeAmountButton(detail.textContent,nutrient));
  card.append(label,detail);
  if(goal&&value!==null){const progress=document.createElement('progress');progress.max=goal;progress.value=Math.min(value,goal);progress.setAttribute('aria-label',label.textContent);card.append(progress);const note=document.createElement('small');note.textContent=formatHome(value/goal*100)+' % · '+formatHome(Math.abs(goal-value))+' '+unit+' '+t(value>goal?'goalExceeded':'goalRemaining');card.append(note);}
  $('goalProgress').append(card);
@@ -22,22 +23,24 @@ const nutritionNames={
  dietaryEnergyConsumed:['Kalorien','Calories'],dietaryProtein:['Protein','Protein'],dietaryCarbohydrates:['Kohlenhydrate','Carbohydrates'],dietaryFatTotal:['Fett','Total fat'],dietaryFatSaturated:['Gesättigte Fettsäuren','Saturated fat'],dietarySugar:['Zucker','Sugar'],dietaryFiber:['Ballaststoffe','Fiber'],dietaryCholesterol:['Cholesterin','Cholesterol'],dietaryFatMonounsaturated:['Einfach ungesättigte Fettsäuren','Monounsaturated fat'],dietaryFatPolyunsaturated:['Mehrfach ungesättigte Fettsäuren','Polyunsaturated fat'],dietaryWater:['Wasser in Lebensmitteln','Water in food'],dietaryThiamin:['Vitamin B1','Vitamin B1'],dietaryRiboflavin:['Vitamin B2','Vitamin B2'],dietaryNiacin:['Vitamin B3','Vitamin B3'],dietaryPantothenicAcid:['Vitamin B5','Vitamin B5'],dietaryBiotin:['Vitamin B7','Vitamin B7'],dietaryFolate:['Folat','Folate'],dietaryCalcium:['Calcium','Calcium'],dietaryChloride:['Chlorid','Chloride'],dietaryIron:['Eisen','Iron'],dietaryMagnesium:['Magnesium','Magnesium'],dietaryPhosphorus:['Phosphor','Phosphorus'],dietaryPotassium:['Kalium','Potassium'],dietarySodium:['Natrium','Sodium'],dietaryZinc:['Zink','Zinc'],dietaryChromium:['Chrom','Chromium'],dietaryCopper:['Kupfer','Copper'],dietaryIodine:['Jod','Iodine'],dietaryManganese:['Mangan','Manganese'],dietaryMolybdenum:['Molybdän','Molybdenum'],dietarySelenium:['Selen','Selenium']};
 const standardKeys=['dietaryEnergyConsumed','dietaryProtein','dietaryCarbohydrates','dietaryFatTotal','dietaryFatSaturated','dietarySugar','dietaryFiber','dietaryCholesterol'];
 let homeState=null,homePreferences=null,buttonEdit='',buttonImageVersion=0,settingsInitialized=false,quickSearchGeneration=0,homeLoadGeneration=0,preferencesGeneration=0;
+let homeContributorMetric=null;
 const customAttempts={};
 function formatHome(value){return new Intl.NumberFormat(lang,{maximumSignificantDigits:5}).format(value);}
 function nutrientLabel(key){return nutritionNames[key]?.[lang==='de'?0:1]||key.replace(/^dietaryVitamin/,'Vitamin ').replace(/^dietary/,'');}
 function nutrientText(row){if(!row)return '—';const values=row.values.map(v=>{let value=v.value,unit=v.unit;if(unit==='g'&&!['dietaryProtein','dietaryCarbohydrates','dietaryFatTotal','dietaryFatSaturated','dietarySugar','dietaryFiber','dietaryFatMonounsaturated','dietaryFatPolyunsaturated','dietaryWater'].includes(row.key)){const micro=['dietaryVitaminA','dietaryVitaminD','dietaryVitaminK','dietaryVitaminB12','dietaryFolate','dietaryBiotin','dietaryChromium','dietaryIodine','dietaryMolybdenum','dietarySelenium'];const scale=micro.includes(row.key)?1e6:1000;value*=scale;unit=scale===1e6?'mcg':'mg';}return formatHome(value)+' '+(unit||t('sourceUnits'));});if(row.qualifiers.length)values.push(row.qualifiers.join(', '));return (values.join(' / ')||'—')+(row.partial&&row.values.length?' · '+t('partial'):'');}
-function tableRow(parent,label,value){const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=label;const td=document.createElement('td');td.textContent=value;tr.append(th,td);parent.append(tr);}
+function tableRow(parent,label,value,metric=null){const tr=document.createElement('tr');const th=document.createElement('th');th.scope='row';th.textContent=label;const td=document.createElement('td');if(metric)td.append(homeAmountButton(value,metric));else td.textContent=value;tr.append(th,td);parent.append(tr);}
 function renderHome(){
  renderGoals();
  $('homeZeroHint').hidden=!homeState?.missing_nutrients_as_zero;
  $('todayDate').textContent=new Date().toLocaleDateString(lang,{dateStyle:'full'});
  $('standardTotals').replaceChildren();$('stimulantTotals').replaceChildren();$('otherTotals').replaceChildren();
- for(const key of standardKeys){const dt=document.createElement('dt');dt.textContent=nutrientLabel(key);const dd=document.createElement('dd');dd.textContent=nutrientText(homeState?.nutrients.find(r=>r.key===key));$('standardTotals').append(dt,dd);}
- const dt=document.createElement('dt');dt.textContent=t('drinkingWater');const dd=document.createElement('dd');dd.textContent=homeState?formatHome(homeState.drinking_water_ml)+' ml':'—';$('standardTotals').append(dt,dd);
- tableRow($('stimulantTotals'),t('caffeine'),homeState?formatHome(homeState.caffeine_mg)+' mg':'—');tableRow($('stimulantTotals'),t('alcohol'),homeState?formatHome(homeState.ethanol_g)+' g':'—');
+ for(const key of standardKeys){const dt=document.createElement('dt');dt.textContent=nutrientLabel(key);const dd=document.createElement('dd');dd.append(homeAmountButton(nutrientText(homeState?.nutrients.find(r=>r.key===key)),key));$('standardTotals').append(dt,dd);}
+ const dt=document.createElement('dt');dt.textContent=t('drinkingWater');const dd=document.createElement('dd');dd.append(homeAmountButton(homeState?formatHome(homeState.drinking_water_ml)+' ml':'—','drinking_water_ml'));$('standardTotals').append(dt,dd);
+ tableRow($('stimulantTotals'),t('caffeine'),homeState?formatHome(homeState.caffeine_mg)+' mg':'—','caffeine_mg');tableRow($('stimulantTotals'),t('alcohol'),homeState?formatHome(homeState.ethanol_g)+' g':'—','ethanol_g');
  const bac=homeState?.current_bac;tableRow($('stimulantTotals'),t('currentBAC'),bac?bac.percent===null?t(bac.reason):formatHome(bac.percent)+' % / '+formatHome(bac.percent*10)+' ‰':'—');
- for(const row of homeState?.nutrients||[])if(!standardKeys.includes(row.key)&&row.key!=='dietaryCaffeine')tableRow($('otherTotals'),nutrientLabel(row.key),nutrientText(row));
+ for(const row of homeState?.nutrients||[])if(!standardKeys.includes(row.key)&&row.key!=='dietaryCaffeine')tableRow($('otherTotals'),nutrientLabel(row.key),nutrientText(row),row.key);
  $('homeCoverage').textContent=homeState?t('coverage')+': '+homeState.unresolved:t('notLoaded');
+ if($('homeContributors').open)renderHomeContributors();
  if(!homePreferences)return;
  $('customQuickButtons').replaceChildren();
  for(const b of homePreferences.buttons){
@@ -70,7 +73,7 @@ $('deleteQuick').onclick=async()=>{if(!buttonEdit||!confirm(t('confirmDeleteQuic
 $('removeQuickImage').onclick=async()=>{try{await api('/quick-buttons/'+buttonEdit+'/image',{method:'DELETE'});buttonImageVersion++;await loadHome();editQuick();}catch(e){message(e.message,true);}};
 $('quickFoodSearch').oninput=async()=>{const generation=++quickSearchGeneration;const q=$('quickFoodSearch').value.trim(),searchLang=lang;$('quickFoodResults').replaceChildren();if(!q)return;try{const foods=await api('/foods?q='+encodeURIComponent(q)+'&lang='+searchLang);if(generation!==quickSearchGeneration||searchLang!==lang||$('dashboard').hidden)return;for(const f of foods){const b=document.createElement('button');b.type='button';b.className='result';b.textContent=f.display_name;b.onclick=()=>{rememberFoodSelection(q,f.bls_code,searchLang);$('quickCode').value=f.bls_code;$('quickFoodResults').replaceChildren();};$('quickFoodResults').append(b);}}catch(e){message(e.message,true);}};
 $('bacProfileForm').onsubmit=async event=>{event.preventDefault();if(!homePreferences)return;const button=event.submitter;button.disabled=true;try{await savePreferences({...homePreferences,bac:{mass_kg:Number($('profileMass').value),distribution:Number($('profileDistribution').value),elimination_percent_per_hour:Number($('profileElimination').value),absorption_per_hour:Number($('profileAbsorption').value)}});await loadHome();message(t('saved'));}catch(e){message(e.message,true);}finally{button.disabled=false;}};
-window.addEventListener('friss-logout',()=>{homeLoadGeneration++;preferencesGeneration++;homeState=null;homePreferences=null;settingsInitialized=false;buttonEdit='';for(const k of Object.keys(customAttempts))delete customAttempts[k];$('quickForm').reset();$('bacProfileForm').reset();$('goalsForm').reset();$('missingValuesForm').reset();$('quickImagePreview').hidden=true;renderHome();});
+window.addEventListener('friss-logout',()=>{homeLoadGeneration++;preferencesGeneration++;homeState=null;homePreferences=null;closeHomeContributors();settingsInitialized=false;buttonEdit='';for(const k of Object.keys(customAttempts))delete customAttempts[k];$('quickForm').reset();$('bacProfileForm').reset();$('goalsForm').reset();$('missingValuesForm').reset();$('quickImagePreview').hidden=true;renderHome();});
 new MutationObserver(()=>{renderHome();quickFields();}).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 setInterval(()=>{if(!$('dashboard').hidden&&currentPage==='home')loadHome().catch(()=>{homeState=null;renderHome();});},60000);
 translate();quickFields();if(!$('dashboard').hidden)refresh();
@@ -100,3 +103,29 @@ $('missingValuesForm').onsubmit=async event=>{
  try{await savePreferences({...homePreferences,missing_nutrients_as_zero:$('missingValuesZero').checked});await refresh();message(t('saved'));}
  catch(e){message(e.message,true);}finally{button.disabled=false;}
 };
+
+Object.assign(words.de,{closeContributors:'Schließen',contributingEntries:'Beiträge zu',contributorZero:'Nullwerte und fehlende Angaben',contributorUnknown:'Wert unbekannt',contributorAssumed:'Enthält Nullannahmen',noContributors:'Keine Einträge mit einem Beitrag zu diesem Wert.',contributorInspect:'Einträge zu diesem Wert anzeigen',contributorRecipe:'Gebuchte Rezeptportion'});
+Object.assign(words.en,{closeContributors:'Close',contributingEntries:'Contributions to',contributorZero:'Zero and unknown values',contributorUnknown:'Value unknown',contributorAssumed:'Includes assumed zero values',noContributors:'No entries contributing to this value.',contributorInspect:'Show entries contributing to this value',contributorRecipe:'Logged recipe serving'});
+
+function homeAmountButton(text,metric){const button=document.createElement('button');button.type='button';button.className='homeAmount';button.textContent=text;button.disabled=!homeState;button.setAttribute('aria-label',t('contributorInspect')+' · '+(metric.startsWith('dietary')?nutrientLabel(metric):t(metric==='caffeine_mg'?'caffeine':metric==='ethanol_g'?'alcohol':'drinkingWater'))+' · '+text);button.onclick=()=>{homeContributorMetric=metric;renderHomeContributors();$('homeContributors').showModal();};return button;}
+function closeHomeContributors(){homeContributorMetric=null;$('homeContributors').close();$('homeContributorsList').replaceChildren();$('homeContributorsOtherList').replaceChildren();$('homeContributorsTotal').textContent='';}
+function renderHomeContributors(){
+ const metric=homeContributorMetric;if(!metric||!homeState)return;
+ const nutrition=metric.startsWith('dietary'),row=nutrition?homeState.nutrients.find(r=>r.key===metric):null;
+ const entries=nutrition?row?.contributors||[]:homeState.contributors?.[metric]||[];
+ const title=nutrition?nutrientLabel(metric):t(metric==='caffeine_mg'?'caffeine':metric==='ethanol_g'?'alcohol':'drinkingWater');
+ $('homeContributorsTitle').textContent=t('contributingEntries')+' '+title;
+ $('homeContributorsTotal').textContent=nutrition?nutrientText(row):formatHome(homeState[metric])+' '+(metric==='caffeine_mg'?'mg':metric==='ethanol_g'?'g':'ml');
+ $('homeContributorsList').replaceChildren();$('homeContributorsOtherList').replaceChildren();let positive=0,other=0;
+ for(const e of entries.slice().sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))){
+ const hasAmount=e.values.some(v=>v.value>0);if(hasAmount)positive++;else other++;
+ const link=document.createElement('a');link.className='contributorEntry';link.href='#entry/'+e.id;link.onclick=closeHomeContributors;
+ const name=document.createElement('strong');name.textContent=e['name_'+lang]||t(e.drink||e.type);const meta=document.createElement('p');meta.className='note';meta.textContent=new Date(e.timestamp).toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit'})+(e.quantity?' · '+formatHome(e.quantity.value)+' '+t(e.quantity.unit==='portion'?'portions':e.quantity.unit==='fraction'?'fraction':e.quantity.unit):'')+(e.type==='recipe'?' · '+t('contributorRecipe'):'');
+ const value=document.createElement('p');value.textContent=e.values.length?nutrition?nutrientText({key:metric,values:e.values,qualifiers:[],partial:false}):e.values.map(v=>formatHome(v.value)+' '+v.unit).join(' / '):String(e.qualifier||t('contributorUnknown'));if(e.assumed)value.textContent+=' · '+t('contributorAssumed');link.append(name,meta,value);$(hasAmount?'homeContributorsList':'homeContributorsOtherList').append(link);
+ }
+ if(!positive)$('homeContributorsList').textContent=t('noContributors');$('homeContributorsOther').hidden=!other;$('homeContributorsOtherTitle').textContent=t('contributorZero')+' ('+other+')';
+}
+$('homeContributorsClose').onclick=closeHomeContributors;
+$('homeContributors').addEventListener('cancel',()=>{homeContributorMetric=null;});
+window.addEventListener('friss-page',event=>{if(event.detail!=='home')closeHomeContributors();});
+translate();
