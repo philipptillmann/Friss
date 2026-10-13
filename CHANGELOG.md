@@ -1,3 +1,9 @@
+## 1.20.0 — FDDB-Linkimport
+
+- Deutsche FDDB-Lebensmittelseiten unter Eigene Zutaten importieren, prüfen und speichern; keine API oder Anmeldung erforderlich.
+- Veröffentlichte Werte pro 100 g, Einheiten und Quellenangaben übernehmen; Wasser-Prozent in g umrechnen, fehlende Angaben unbekannt lassen.
+- FDDB-Kohlenhydrate unverändert übernehmen; die USDA-Ballaststoffkorrektur bleibt auf FoodData beschränkt.
+
 ## 1.19.0 — ChatGPT-Nährwerte importieren
 
 - Optionale Nährwerte pro 100 g / 100 ml direkt übernehmen, in der Vorschau korrigieren oder durch Datenbankwerte ersetzen.

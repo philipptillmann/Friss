@@ -305,3 +305,12 @@ Die Daten kommen zusammen mit der Tagesübersicht aus `/home-summary`; Contribut
 Unter Mahlzeiten oder bei Rezeptzutaten **JSON aus ChatGPT importieren** öffnen. Dort die kopierbare ChatGPT-Vorlage mit Foto oder Beschreibung in der ChatGPT-App verwenden, deren JSON als Text einfügen oder Datei hochladen, die Lebensmittel / Mengen prüfen und gemeinsam speichern. Friss führt keinen KI-Aufruf aus. Die Nährwerte können direkt aus der ChatGPT-Ausgabe übernommen und in der Vorschau korrigiert werden, oder aus gewählten BLS-Datensätzen / eigenen Zutaten kommen; fehlende Zuordnungen bleiben nachbearbeitbar. Die Eingabe wird im Original erhalten, Wiederholungen sind durch die Import-ID gegen doppelte Buchung abgesichert.
 
 Das vollständige Format `friss-meal-v1`, Beispiele, API und Nutzung sind in [JSON_IMPORT.md](docs/JSON_IMPORT.md) beschrieben. Eine [Beispieldatei](app/static/friss-meal-example.json) liegt ebenfalls bei. Mengen in Fotos als Schätzungen behandeln; ml nicht ohne bekannte Dichte zu g umdeuten. Der Import gilt für eine Mahlzeit beziehungsweise eine Zutatenliste mit einem gemeinsamen, bearbeitbaren Zeitpunkt.
+
+
+## FDDB importieren (1.20.0)
+
+Unter **Eigene Zutaten** einen deutschen FDDB-Lebensmittellink in das Importfeld einfügen, zum Beispiel `https://fddb.info/db/de/lebensmittel/naturprodukt_zimt_gemahlen_1053/index.html?nomobile=1`. **Nährwerte importieren** lädt eine Vorschau; erst **Speichern** legt die Zutat an. Danach ist sie bei Mahlzeiten und Rezeptzutaten auswählbar. Kein FDDB-Konto oder API-Schlüssel erforderlich.
+
+Der Import übernimmt veröffentlichte Werte pro 100 g einschließlich verfügbarer Vitamine und Mineralstoffe. Mikrogramm werden normalisiert, Wassergehalt in Prozent entspricht Gramm pro 100 g. Fehlende Angaben wie „k. A.“ und nicht unterstützte Nährstoffe bleiben unbekannt. FDDB-Kohlenhydrate werden unverändert übernommen, ohne erneuten Ballaststoffabzug. Quelle, Originalwerte und Importzeit bleiben gespeichert; die Namen können nach dem Import angepasst werden.
+
+Der gemeinsame Endpunkt `POST /manual-ingredients/import` unterstützt FoodData Explorer und FDDB. Nur HTTPS-Lebensmittelseiten der freigegebenen Anbieter werden geladen, ohne Weiterleitungen. FDDB-Sperren, nicht erreichbare Seiten oder geänderte Seitenstrukturen werden als Importfehler angezeigt; es wird dann keine Zutat gespeichert.

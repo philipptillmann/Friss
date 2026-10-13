@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 from fastapi import Depends,HTTPException
 from pydantic import BaseModel,Field,model_validator
-from . import fooddata_import
+from . import fooddata_import,fddb_import
 from .home import ALL_NUTRIENTS
 
 NUTRIENTS={'dietary'+n for n in ALL_NUTRIENTS}|{'dietaryCaffeine'}
@@ -26,7 +26,7 @@ class CarbohydrateConversion(BaseModel):
     result_g:float|None=Field(default=None,ge=0,allow_inf_nan=False)
 
 class ImportSource(BaseModel):
-    provider:Literal['FoodData Explorer']
+    provider:Literal['FoodData Explorer','FDDB']
     url:str=Field(max_length=2000)
     imported_at:datetime
     basis_g:Literal[100]
@@ -34,7 +34,7 @@ class ImportSource(BaseModel):
     carbohydrate_conversion:CarbohydrateConversion|None=None
     @model_validator(mode='after')
     def valid(self):
-        self.url=fooddata_import.canonical_url(self.url)
+        self.url=(fddb_import if self.provider=='FDDB' else fooddata_import).canonical_url(self.url)
         if self.imported_at.utcoffset() is None:raise ValueError('Import timestamp requires timezone')
         return self
 

@@ -20,6 +20,14 @@ vm.runInContext(fs.readFileSync('app/static/manual-ingredients.js','utf8'),conte
  assert.equal(vm.runInContext('manualEditing',context),null,'import must create a new ingredient');
  await $('manualForm').onsubmit({preventDefault(){}});
  assert.equal(posts[0].nutrients.dietaryCarbohydrates.value,27.49);assert.equal(posts[0].source.carbohydrate_conversion.status,'converted');assert.equal(posts[0].id,'new-id');assert.equal(posts[0].source.url,source.url);assert.equal(posts[0].nutrients.dietaryWater.unit,'g');assert.equal(posts[0].nutrients.dietarySelenium,undefined);
+ imported.source={...source,provider:'FDDB',url:'https://fddb.info/db/de/lebensmittel/naturprodukt_zimt_gemahlen_1053/index.html?nomobile=1',carbohydrate_conversion:null};
+ imported.name_de='Zimt, gemahlen';imported.nutrients.dietaryCarbohydrates.value=56;
+ $('manualImportURL').value=imported.source.url;
+ await $('manualImportForm').onsubmit({preventDefault(){}});
+ assert.equal($('manualNameDe').value,'Zimt, gemahlen');
+ assert.equal($('manualImportStatus').textContent.includes('manualImportCarbs'),false,'FDDB must not show USDA conversion');
+ await $('manualForm').onsubmit({preventDefault(){}});
+ assert.equal(posts[1].source.provider,'FDDB');assert.equal(posts[1].nutrients.dietaryCarbohydrates.value,56);
  deferred={};const pending=$('manualImportForm').onsubmit({preventDefault(){}});
  $('manualNameDe').value='Keep my edit';events.input();deferred.resolve();await pending;
  assert.equal($('manualNameDe').value,'Keep my edit','late import must not overwrite newer edits');

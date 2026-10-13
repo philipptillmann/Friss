@@ -251,5 +251,9 @@ async def fetch(url):
 def install(app,auth):
     @app.post('/manual-ingredients/import',dependencies=[Depends(auth)])
     async def preview(body:ImportRequest):
+        from . import fddb_import
+        if urlsplit(body.url.strip()).hostname in ('fddb.info','www.fddb.info'):
+            url=fddb_import.canonical_url(body.url)
+            return fddb_import.parse(await fddb_import.fetch(url),url)
         url=canonical_url(body.url)
         return parse(await fetch(url),url)
