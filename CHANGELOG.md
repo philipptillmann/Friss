@@ -1,3 +1,8 @@
+## 1.22.1 — Rezeptzutaten bearbeiten
+
+- Zutatenzeilen im Rezept anklickbar machen: gespeicherte Lebensmittel, Mengen und Zeitpunkte direkt in der Eingabemaske bearbeiten.
+- Neuberechnung für das Rezept; bereits gebuchte Rezeptportionen behalten ihren gespeicherten Stand.
+
 ## 1.22.0 — Rezepte duplizieren
 
 - Ausgewähltes Rezept einschließlich Zutaten, Mengen, Notizen, Gesamtgewicht und zusätzlichem Wasser / Koffein / Alkohol als unabhängige Kopie anlegen.

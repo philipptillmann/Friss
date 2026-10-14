@@ -142,3 +142,16 @@ class RecipeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.post(path,json=body,headers={'Authorization':'bad'})).status_code,401)
         self.assertEqual((await self.client.post(path,json=body)).status_code,404)
         self.assertEqual((await self.client.post(path,json={**body,'name':''})).status_code,422)
+
+    async def test_edit_ingredient_amount_updates_recipe_but_not_logged_portion(self):
+        r,i=await self.setup_recipe()
+        intake={'id':str(uuid4()),'timestamp':'2026-10-14T12:00:00+02:00','amount':1,'unit':'portion'}
+        logged=(await self.client.post('/recipes/'+r['id']+'/intake',json=intake)).json()
+        result=await self.client.post('/entries/'+i['id']+'/resolve',json={'bls_code':'RECIPE_TEST','quantity':{'value':150,'unit':'g'}})
+        self.assertEqual(result.status_code,200)
+        recipe=(await self.client.get('/recipes/'+r['id'])).json()
+        self.assertEqual(len(recipe['ingredients']),1)
+        self.assertEqual(recipe['ingredients'][0]['id'],i['id'])
+        self.assertEqual(recipe['nutrients']['dietaryEnergyConsumed']['value'],300)
+        saved=(await self.client.get('/entries/'+logged['id'])).json()
+        self.assertEqual(saved['nutrients']['dietaryEnergyConsumed']['value'],150)

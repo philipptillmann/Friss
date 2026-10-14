@@ -328,3 +328,8 @@ Bei unklarer Übertragung erneut kopieren drücken: dieselbe Anfrage erzeugt kei
 Auf **Rezepte** ein gespeichertes Rezept auswählen und **Rezept duplizieren** drücken. Die neue Kopie öffnet sich mit dem Zusatz „(Kopie)“ und kann umbenannt und bearbeitet werden. Zutaten erhalten eigene IDs; Mengen, gespeicherte Nährwerte, ursprüngliche Zutatenzeitpunkte, Notizen, Portionenzahl, fertiges Gesamtgewicht und zusätzliches Wasser / Koffein / Alkohol bleiben erhalten. Offene Zutaten bleiben zur Nachbearbeitung offen. Änderungen an einer Kopie verändern weder das ursprüngliche Rezept noch bereits gebuchte Rezeptportionen. Noch nicht gespeicherte Formularänderungen werden nicht mitkopiert.
 
 Die Duplizierung bucht keine Mahlzeit und keine Health-Werte. Wiederholen nach unklarer Übertragung legt dieselbe Kopie nur einmal an. API: `POST /recipes/{id}/duplicate` mit neuer UUID als `id` und `name`.
+
+
+### Rezeptzutaten bearbeiten
+
+Auf der Rezeptseite die gewünschte Zutatenzeile anklicken. Die Eingabemaske öffnet sich mit dem bereits gewählten Lebensmittel, der Menge und dem Zeitpunkt. Menge anpassen und **Speichern** drücken: die vorhandene Zutat wird geändert, keine zusätzliche angelegt. Bei eigenen Zutaten und ChatGPT-Importen bleibt der gespeicherte Nährwertstand erhalten. Das Rezept wird neu berechnet; bereits gebuchte Portionen behalten ihre damaligen Nährwerte. **Abbrechen** verwirft die Bearbeitung.
