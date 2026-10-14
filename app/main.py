@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.20.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.21.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -300,6 +300,41 @@ class EntryTime(BaseModel):
         if self.timestamp.utcoffset() is None:
             raise ValueError('Timezone required')
         return self
+
+class EntryCopy(EntryTime):
+    id: UUID
+
+@app.post('/entries/{id}/copy',status_code=201,dependencies=[Depends(auth)])
+async def copy_entry(id: UUID,body: EntryCopy):
+    request={'source_id':str(id),**body.model_dump(mode='json')}
+    fingerprint=hashlib.sha256(json.dumps(request,sort_keys=True).encode()).hexdigest()
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        existing=c.execute('SELECT fingerprint,payload FROM entries WHERE id=?',(str(body.id),)).fetchone()
+        if existing:
+            if existing['fingerprint']!=fingerprint:raise HTTPException(409,'Copy ID already used with different content')
+            return json.loads(existing['payload'])
+        row=c.execute('SELECT payload FROM entries WHERE id=?',(str(id),)).fetchone()
+        if not row:raise HTTPException(404,'Entry not found')
+        original=json.loads(row['payload'])
+        if original.get('recipe_id'):raise HTTPException(422,'Copy a diary entry, not a recipe ingredient')
+        e={k:v for k,v in original.items() if k not in ('export_token','original_timestamp','health_status','revision','id','timestamp','copied_from')}
+        e.update(id=str(body.id),timestamp=body.timestamp.isoformat(),health_status='pending',revision=1,
+                 copied_from={'id':str(id),'timestamp':original['timestamp']})
+        # Freeze actual data, not the optional zero-value interpretation. No lookup
+        # or recipe recalculation: changes to food sources cannot alter a copy.
+        path=DATA/'originals'/f"{body.id}.json"
+        text=json.dumps(e,ensure_ascii=False)
+        if path.exists() and path.read_text()!=text:raise HTTPException(409,'Copy original already exists with different content')
+        if not path.exists():path.write_text(text)
+        photo=DATA/'originals'/f'{id}.jpeg'
+        if photo.exists():
+            target=DATA/'originals'/f'{body.id}.jpeg'
+            data=photo.read_bytes()
+            if target.exists() and target.read_bytes()!=data:raise HTTPException(409,'Copy photo already exists with different content')
+            if not target.exists():target.write_bytes(data)
+        c.execute('INSERT INTO entries VALUES(?,?,?)',(e['id'],fingerprint,json.dumps(e)))
+    return e
 
 @app.patch('/entries/{id}/time', dependencies=[Depends(auth)])
 async def edit_entry_time(id: UUID, body: EntryTime):

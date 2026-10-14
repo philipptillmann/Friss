@@ -1,3 +1,9 @@
+## 1.21.0 — Einträge kopieren
+
+- Tagebucheinträge auf der Detailseite auf einen anderen Tag oder Zeitpunkt kopieren.
+- Mengen und gespeicherte Nährwerte einschließlich Rezeptständen erhalten; Health-Status für die Kopie neu beginnen.
+- Kopierherkunft, eigene Originaldateien und doppelfreie Wiederholung bei Übertragungsfehlern.
+
 ## 1.20.0 — FDDB-Linkimport
 
 - Deutsche FDDB-Lebensmittelseiten unter Eigene Zutaten importieren, prüfen und speichern; keine API oder Anmeldung erforderlich.

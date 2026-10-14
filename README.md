@@ -314,3 +314,10 @@ Unter **Eigene Zutaten** einen deutschen FDDB-Lebensmittellink in das Importfeld
 Der Import übernimmt veröffentlichte Werte pro 100 g einschließlich verfügbarer Vitamine und Mineralstoffe. Mikrogramm werden normalisiert, Wassergehalt in Prozent entspricht Gramm pro 100 g. Fehlende Angaben wie „k. A.“ und nicht unterstützte Nährstoffe bleiben unbekannt. FDDB-Kohlenhydrate werden unverändert übernommen, ohne erneuten Ballaststoffabzug. Quelle, Originalwerte und Importzeit bleiben gespeichert; die Namen können nach dem Import angepasst werden.
 
 Der gemeinsame Endpunkt `POST /manual-ingredients/import` unterstützt FoodData Explorer und FDDB. Nur HTTPS-Lebensmittelseiten der freigegebenen Anbieter werden geladen, ohne Weiterleitungen. FDDB-Sperren, nicht erreichbare Seiten oder geänderte Seitenstrukturen werden als Importfehler angezeigt; es wird dann keine Zutat gespeichert.
+
+
+## Tagebucheinträge kopieren (1.21.0)
+
+Unter **Mahlzeiten** einen Eintrag öffnen. Bei **Eintrag kopieren** Datum und Uhrzeit wählen (standardmäßig jetzt) und bestätigen. Es entsteht ein neuer Eintrag; der bisherige bleibt erhalten. Menge, Nährwerte, Quellen und gespeicherte Rezeptstände werden unverändert übernommen. Auch Getränke und noch offene Einträge können kopiert werden. Die Kopie beginnt mit **Health ausstehend** und zählt am gewählten Zeitpunkt zu Tageswerten und gegebenenfalls BAC. Rezeptzutaten werden nicht einzeln ins Tagebuch kopiert; dafür den gebuchten Rezeptverzehr verwenden.
+
+Bei unklarer Übertragung erneut kopieren drücken: dieselbe Anfrage erzeugt keine zweite Kopie. API: `POST /entries/{source_id}/copy` mit neuer UUID als `id` und `timestamp` mit Zeitzone. Originaldateien und Fotos bleiben erhalten; die Kopie bekommt eine eigene Originaldatei sowie eine Herkunftsangabe.

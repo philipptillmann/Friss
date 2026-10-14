@@ -55,3 +55,35 @@ class EntryDetailsTests(unittest.IsolatedAsyncioTestCase):
         details=await self.client.get('/entries/'+unknown['id']+'/details')
         self.assertEqual(details.status_code,200)
         self.assertEqual(details.json()['contributions'],{})
+
+    async def test_copy_snapshot_time_health_and_idempotency(self):
+        from uuid import uuid4
+        p=self.payload()
+        e=(await self.client.post('/entries',json=p)).json()
+        e.update(health_status='synced',export_token='old-token',recipe_snapshot={'name':'Frozen recipe'},drinking_water_ml=12)
+        main.save_entry(e)
+        body={'id':str(uuid4()),'timestamp':'2026-10-15T07:30:00+02:00'}
+        path='/entries/'+e['id']+'/copy'
+        r=await self.client.post(path,json=body);self.assertEqual(r.status_code,201)
+        copy=r.json()
+        self.assertEqual(copy['nutrients'],e['nutrients'])
+        self.assertEqual(copy['recipe_snapshot'],e['recipe_snapshot'])
+        self.assertEqual(copy['health_status'],'pending');self.assertNotIn('export_token',copy)
+        self.assertEqual(copy['timestamp'],body['timestamp'])
+        self.assertEqual(copy['copied_from']['id'],e['id'])
+        self.assertEqual(main.load_entry(e['id'])['health_status'],'synced')
+        self.assertTrue((main.DATA/'originals'/f"{copy['id']}.json").exists())
+        await self.client.delete('/entries/'+e['id'])
+        self.assertEqual((await self.client.post(path,json=body)).json(),copy)
+        self.assertEqual((await self.client.post(path,json={**body,'timestamp':'2026-10-16T07:30:00+02:00'})).status_code,409)
+
+    async def test_copy_validation_and_recipe_ingredient(self):
+        from uuid import uuid4
+        e=(await self.client.post('/entries',json=self.payload())).json()
+        path='/entries/'+e['id']+'/copy'
+        body={'id':str(uuid4()),'timestamp':'2026-10-15T07:30:00'}
+        self.assertEqual((await self.client.post(path,json=body)).status_code,422)
+        body['timestamp']+='Z'
+        self.assertEqual((await self.client.post(path,json=body,headers={'Authorization':'bad'})).status_code,401)
+        e['recipe_id']=str(uuid4());main.save_entry(e)
+        self.assertEqual((await self.client.post(path,json=body)).status_code,422)
