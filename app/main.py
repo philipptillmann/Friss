@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.21.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.22.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -584,14 +584,50 @@ async def recipes():
     with db() as c: rows=c.execute('SELECT payload FROM recipes ORDER BY rowid DESC').fetchall()
     return [recipe_details(json.loads(r['payload'])) for r in rows]
 
+class RecipeDuplicate(BaseModel):
+    id: UUID
+    name: str = Field(min_length=1,max_length=200)
+
+@app.post('/recipes/{id}/duplicate',status_code=201,dependencies=[Depends(auth)])
+async def duplicate_recipe(id: UUID,body: RecipeDuplicate):
+    request={'source_id':str(id),**body.model_dump(mode='json')}
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        old=c.execute('SELECT payload FROM recipes WHERE id=?',(str(body.id),)).fetchone()
+        if old:
+            r=json.loads(old['payload'])
+            if r.get('duplicate_request')!=request:raise HTTPException(409,'Recipe ID already used')
+        else:
+            source=c.execute('SELECT payload FROM recipes WHERE id=?',(str(id),)).fetchone()
+            if not source:raise HTTPException(404,'Recipe not found')
+            r={**json.loads(source['payload']),'id':str(body.id),'name':body.name,'copied_from':str(id),'duplicate_request':request}
+            ingredients=[json.loads(row['payload']) for row in c.execute('SELECT payload FROM entries')]
+            ingredients=[e for e in ingredients if e.get('recipe_id')==str(id)]
+            for ingredient in ingredients:
+                eid=str(uuid5(body.id,ingredient['id']))
+                e={k:v for k,v in ingredient.items() if k not in ('export_token','original_timestamp','copied_from')}
+                e.update(id=eid,recipe_id=r['id'],health_status='pending',revision=1,copied_from={'id':ingredient['id'],'timestamp':ingredient['timestamp']})
+                text=json.dumps(e,ensure_ascii=False);path=DATA/'originals'/f'{eid}.json'
+                if path.exists() and path.read_text()!=text:raise HTTPException(409,'Ingredient original already exists with different content')
+                if not path.exists():path.write_text(text)
+                photo=DATA/'originals'/f"{ingredient['id']}.jpeg"
+                if photo.exists():
+                    target=DATA/'originals'/f'{eid}.jpeg';data=photo.read_bytes()
+                    if target.exists() and target.read_bytes()!=data:raise HTTPException(409,'Ingredient photo already exists with different content')
+                    if not target.exists():target.write_bytes(data)
+                fingerprint=hashlib.sha256(text.encode()).hexdigest()
+                c.execute('INSERT INTO entries VALUES(?,?,?)',(eid,fingerprint,json.dumps(e)))
+            c.execute('INSERT INTO recipes VALUES(?,?)',(r['id'],json.dumps(r)))
+    return recipe_details(r)
+
 @app.get('/recipes/{id}', dependencies=[Depends(auth)])
 async def get_recipe(id: UUID):
     return recipe_details(load_recipe(id))
 
 @app.put('/recipes/{id}', dependencies=[Depends(auth)])
 async def edit_recipe(id: UUID, body: RecipeEdit):
-    load_recipe(id)
-    r={'id':str(id),**body.model_dump(mode='json')}
+    previous=load_recipe(id)
+    r={**{k:previous[k] for k in ('copied_from','duplicate_request') if k in previous},'id':str(id),**body.model_dump(mode='json')}
     with db() as c: c.execute('UPDATE recipes SET payload=? WHERE id=?',(json.dumps(r),str(id)))
     return recipe_details(r)
 

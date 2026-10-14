@@ -109,3 +109,36 @@ class RecipeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()['nutrients']['dietaryWater']['value'],250)
         self.assertEqual(response.json()['nutrients']['dietaryCaffeine']['value'],50)
         self.assertEqual((await self.client.post('/recipes',json={**r,'id':str(uuid4()),'added_ethanol_g':-1})).status_code,422)
+
+    async def test_duplicate_recipe_independent_ingredients_and_retry(self):
+        from app import main
+        r,i=await self.setup_recipe()
+        edit={k:r[k] for k in ('name','servings','finished_weight_g')}
+        edit.update(notes='Original notes',added_water_ml=100,added_caffeine_mg=50,added_ethanol_g=5)
+        await self.client.put('/recipes/'+r['id'],json=edit)
+        body={'id':str(uuid4()),'name':'New variation'}
+        path='/recipes/'+r['id']+'/duplicate'
+        response=await self.client.post(path,json=body);self.assertEqual(response.status_code,201)
+        copy=response.json();ingredient=copy['ingredients'][0]
+        self.assertEqual(copy['notes'],'Original notes');self.assertEqual(copy['added_water_ml'],100)
+        self.assertEqual(copy['added_caffeine_mg'],50);self.assertEqual(copy['added_ethanol_g'],5)
+        self.assertEqual(copy['finished_weight_g'],600);self.assertEqual(copy['servings'],4)
+        self.assertNotEqual(ingredient['id'],i['id']);self.assertEqual(ingredient['recipe_id'],copy['id'])
+        self.assertEqual(ingredient['nutrients'],main.load_entry(i['id'])['nutrients'])
+        self.assertEqual((await self.client.get('/entries')).json(),[])
+        self.assertTrue((main.DATA/'originals'/f"{ingredient['id']}.json").exists())
+        await self.client.put('/recipes/'+copy['id'],json={**edit,'name':'Renamed copy'})
+        await self.client.delete('/entries/'+ingredient['id'])
+        retried=await self.client.post(path,json=body)
+        self.assertEqual(retried.status_code,201);self.assertEqual(retried.json()['ingredients'],[])
+        self.assertEqual(retried.json()['name'],'Renamed copy')
+        original=(await self.client.get('/recipes/'+r['id'])).json()
+        self.assertEqual(len(original['ingredients']),1);self.assertEqual(original['name'],r['name'])
+        self.assertEqual((await self.client.post(path,json={**body,'name':'Other'})).status_code,409)
+
+    async def test_duplicate_recipe_auth_and_unknown_source(self):
+        path='/recipes/'+str(uuid4())+'/duplicate'
+        body={'id':str(uuid4()),'name':'Copy'}
+        self.assertEqual((await self.client.post(path,json=body,headers={'Authorization':'bad'})).status_code,401)
+        self.assertEqual((await self.client.post(path,json=body)).status_code,404)
+        self.assertEqual((await self.client.post(path,json={**body,'name':''})).status_code,422)

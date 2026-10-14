@@ -48,11 +48,28 @@ $('entryForm').onsubmit=async event=>{event.preventDefault();const k=$('kind').v
 $('save').disabled=true;try{const a=attempt;if(a.editing){await api('/entries/'+a.editing+'/resolve',{method:'POST',body:JSON.stringify({bls_code:a.body.bls_code,quantity:a.body.quantity,timestamp:a.body.timestamp,barcode:a.body.barcode,description:a.body.description,caffeine_mg:a.body.caffeine_mg,alcohol_abv:a.body.alcohol_abv})});}else{await api('/entries',{method:'POST',body:JSON.stringify(a.body)});if(a.file)await api('/entries/'+a.body.id+'/photo',{method:'PUT',body:a.file});}reset();await refresh();message(t('saved'));}catch(e){$('cancel').hidden=false;message(t('retry')+' '+e.message,true);}finally{$('save').disabled=false;}};
 $('day').value=localDate(new Date());now();translate();$('logout').hidden=true;sessionStorage.removeItem('frissKey');(async()=>{try{await api('/health');$('dashboard').hidden=false;$('login').hidden=true;$('logout').hidden=false;await refresh();}catch{}})();
 
+Object.assign(words.de,{duplicateRecipe:'Rezept duplizieren',recipeCopySuffix:' (Kopie)',recipeDuplicateRetry:'Übertragung unklar. Erneut duplizieren wiederholt denselben Vorgang ohne weitere Kopie.'});
+Object.assign(words.en,{duplicateRecipe:'Duplicate recipe',recipeCopySuffix:' (copy)',recipeDuplicateRetry:'Transfer uncertain. Duplicate again to retry without another copy.'});
+let recipeDuplicateAttempt=null,recipeDuplicateBusy=false;
+$('duplicateRecipe').onclick=async()=>{
+ if(!activeRecipe||recipeDuplicateBusy)return;
+ const source=recipeRows.find(r=>r.id===activeRecipe);if(!source)return;
+ recipeDuplicateAttempt??={source:source.id,id:uuid(),name:source.name.slice(0,190)+t('recipeCopySuffix')};
+ const attempt=recipeDuplicateAttempt;recipeDuplicateBusy=true;$('duplicateRecipe').disabled=true;$('recipeSelect').disabled=true;$('newRecipe').disabled=true;
+ try{
+ const result=await api('/recipes/'+attempt.source+'/duplicate',{method:'POST',body:JSON.stringify({id:attempt.id,name:attempt.name})});
+ if(recipeDuplicateAttempt!==attempt||$('dashboard').hidden)return;
+ recipeDuplicateAttempt=null;activeRecipe=result.id;await refresh();$('recipeSelect').value=result.id;chooseRecipe();$('recipeName').focus();message(t('saved'));
+ }catch(e){if([400,404,409,422].includes(e.status)){recipeDuplicateAttempt=null;message(e.message,true);}else message(t('recipeDuplicateRetry')+' '+e.message,true);}
+ finally{recipeDuplicateBusy=false;$('duplicateRecipe').disabled=!activeRecipe;$('recipeSelect').disabled=!!recipeDuplicateAttempt;$('newRecipe').disabled=!!recipeDuplicateAttempt;}
+};
+window.addEventListener('friss-logout',()=>{recipeDuplicateAttempt=null;$('recipeSelect').disabled=false;$('newRecipe').disabled=false;});
 function renderRecipes(){
  const mealChoice=$('mealRecipe').value;const destination=$('destination').value; $('destination').replaceChildren();const daily=document.createElement('option');daily.value='';daily.textContent=t('daily');$('destination').append(daily);
  $('mealRecipe').replaceChildren();const mealBlank=document.createElement('option');mealBlank.value='';mealBlank.textContent='—';$('mealRecipe').append(mealBlank);$('recipeSelect').replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent='—';$('recipeSelect').append(blank);
  for(const r of recipeRows){for(const target of [$('destination'),$('recipeSelect'),$('mealRecipe')]){const option=document.createElement('option');option.value=r.id;option.textContent=r.name;target.append(option);}}
  $('destination').value=destination; $('recipeSelect').value=activeRecipe;$('mealRecipe').value=mealChoice;updateMealRecipeInfo();
+ $('duplicateRecipe').disabled=!activeRecipe||recipeDuplicateBusy;
  const r=recipeRows.find(r=>r.id===activeRecipe);$('recipeInfo').textContent=r?`${t('ingredients')}: ${r.ingredients.length} · ${t(r.status)} · ${formatNumber(r.servings)} ${t('portions')}`:'';
  if(currentPage==='recipes'){$('entryPanel').hidden=!r;$('entriesPanel').hidden=!r;}
  if(typeof renderQuickRecipeChoices==='function')renderQuickRecipeChoices();

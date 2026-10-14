@@ -1,3 +1,9 @@
+## 1.22.0 — Rezepte duplizieren
+
+- Ausgewähltes Rezept einschließlich Zutaten, Mengen, Notizen, Gesamtgewicht und zusätzlichem Wasser / Koffein / Alkohol als unabhängige Kopie anlegen.
+- Gespeicherte Nährwerte und offene Zutaten erhalten; Kopie direkt zum Umbenennen und Bearbeiten öffnen.
+- Doppelfreie Wiederholung bei Übertragungsfehlern; keine Buchung ins Tagebuch.
+
 ## 1.21.0 — Einträge kopieren
 
 - Tagebucheinträge auf der Detailseite auf einen anderen Tag oder Zeitpunkt kopieren.

@@ -321,3 +321,10 @@ Der gemeinsame Endpunkt `POST /manual-ingredients/import` unterstützt FoodData 
 Unter **Mahlzeiten** einen Eintrag öffnen. Bei **Eintrag kopieren** Datum und Uhrzeit wählen (standardmäßig jetzt) und bestätigen. Es entsteht ein neuer Eintrag; der bisherige bleibt erhalten. Menge, Nährwerte, Quellen und gespeicherte Rezeptstände werden unverändert übernommen. Auch Getränke und noch offene Einträge können kopiert werden. Die Kopie beginnt mit **Health ausstehend** und zählt am gewählten Zeitpunkt zu Tageswerten und gegebenenfalls BAC. Rezeptzutaten werden nicht einzeln ins Tagebuch kopiert; dafür den gebuchten Rezeptverzehr verwenden.
 
 Bei unklarer Übertragung erneut kopieren drücken: dieselbe Anfrage erzeugt keine zweite Kopie. API: `POST /entries/{source_id}/copy` mit neuer UUID als `id` und `timestamp` mit Zeitzone. Originaldateien und Fotos bleiben erhalten; die Kopie bekommt eine eigene Originaldatei sowie eine Herkunftsangabe.
+
+
+## Rezepte duplizieren (1.22.0)
+
+Auf **Rezepte** ein gespeichertes Rezept auswählen und **Rezept duplizieren** drücken. Die neue Kopie öffnet sich mit dem Zusatz „(Kopie)“ und kann umbenannt und bearbeitet werden. Zutaten erhalten eigene IDs; Mengen, gespeicherte Nährwerte, ursprüngliche Zutatenzeitpunkte, Notizen, Portionenzahl, fertiges Gesamtgewicht und zusätzliches Wasser / Koffein / Alkohol bleiben erhalten. Offene Zutaten bleiben zur Nachbearbeitung offen. Änderungen an einer Kopie verändern weder das ursprüngliche Rezept noch bereits gebuchte Rezeptportionen. Noch nicht gespeicherte Formularänderungen werden nicht mitkopiert.
+
+Die Duplizierung bucht keine Mahlzeit und keine Health-Werte. Wiederholen nach unklarer Übertragung legt dieselbe Kopie nur einmal an. API: `POST /recipes/{id}/duplicate` mit neuer UUID als `id` und `name`.
