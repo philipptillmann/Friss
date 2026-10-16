@@ -6,7 +6,7 @@ import os
 import sqlite3
 import unicodedata
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4, uuid5
@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.25.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.26.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -83,10 +83,15 @@ class Quantity(BaseModel):
     value: float = Field(gt=0, allow_inf_nan=False)
     unit: Literal['g','ml']
 
+def validate_finish(start,finish):
+    if finish is not None and (finish.utcoffset() is None or finish<start):
+        raise ValueError('Finish time must have a timezone and be at or after the start')
+
 class Entry(BaseModel):
     id: UUID
     type: Literal['text','barcode','picture','item','drink','manual']
     timestamp: datetime
+    finished_at: datetime | None = None
     quantity: Quantity | None = None
     description: str | None = Field(default=None, max_length=10000)
     barcode: str | None = Field(default=None, pattern=r'^\d{8,14}$')
@@ -103,6 +108,7 @@ class Entry(BaseModel):
     def validate_entry(self):
         if self.timestamp.utcoffset() is None:
             raise ValueError('timestamp requires timezone')
+        validate_finish(self.timestamp,self.finished_at)
         if self.type=='manual' and (not self.manual_id or self.bls_code):
             raise ValueError('Manual ingredient required; do not combine with BLS')
         if self.type == 'barcode' and not self.barcode:
@@ -295,10 +301,12 @@ async def entry_details(id: UUID):
 
 class EntryTime(BaseModel):
     timestamp: datetime
+    finished_at: datetime | None = None
     @model_validator(mode='after')
     def aware(self):
         if self.timestamp.utcoffset() is None:
             raise ValueError('Timezone required')
+        validate_finish(self.timestamp,self.finished_at)
         return self
 
 class EntryCopy(EntryTime):
@@ -321,6 +329,8 @@ async def copy_entry(id: UUID,body: EntryCopy):
         e={k:v for k,v in original.items() if k not in ('export_token','original_timestamp','health_status','revision','id','timestamp','copied_from')}
         e.update(id=str(body.id),timestamp=body.timestamp.isoformat(),health_status='pending',revision=1,
                  copied_from={'id':str(id),'timestamp':original['timestamp']})
+        if 'finished_at' in body.model_fields_set:e['finished_at']=body.finished_at.isoformat() if body.finished_at else None
+        elif original.get('finished_at'):e['finished_at']=(datetime.fromisoformat(original['finished_at'])+(body.timestamp-datetime.fromisoformat(original['timestamp']))).isoformat()
         # Freeze actual data, not the optional zero-value interpretation. No lookup
         # or recipe recalculation: changes to food sources cannot alter a copy.
         path=DATA/'originals'/f"{body.id}.json"
@@ -343,9 +353,13 @@ async def edit_entry_time(id: UUID, body: EntryTime):
         row=c.execute('SELECT payload FROM entries WHERE id=?',(str(id),)).fetchone()
         if not row: raise HTTPException(404,'Entry not found')
         e=json.loads(row['payload'])
-        if e['timestamp']!=body.timestamp.isoformat():
+        finish=body.finished_at
+        if 'finished_at' not in body.model_fields_set and e.get('finished_at'):
+            finish=datetime.fromisoformat(e['finished_at'])+(body.timestamp-datetime.fromisoformat(e['timestamp']))
+        finish_text=finish.isoformat() if finish else None
+        if e['timestamp']!=body.timestamp.isoformat() or e.get('finished_at')!=finish_text:
             e.setdefault('original_timestamp',e['timestamp'])
-            e.update(timestamp=body.timestamp.isoformat(),revision=e.get('revision',1)+1)
+            e.update(timestamp=body.timestamp.isoformat(),finished_at=finish_text,revision=e.get('revision',1)+1)
             c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
     return e
 
@@ -353,6 +367,7 @@ class Resolution(BaseModel):
     bls_code: str | None = None
     quantity: Quantity
     timestamp: datetime | None = None
+    finished_at: datetime | None = None
     barcode: str | None = Field(default=None,pattern=r'^\d{8,14}$')
     description: str | None = Field(default=None,max_length=10000)
     caffeine_mg: float | None = Field(default=None,ge=0,allow_inf_nan=False)
@@ -370,6 +385,13 @@ async def resolve(id:UUID, resolution:Resolution):
     if e['health_status'] != 'pending':
         raise HTTPException(409,'Export already reserved or acknowledged; Health correction required')
     if e['type']=='recipe': raise HTTPException(422,'Recipe servings cannot be resolved as ingredients')
+    start=resolution.timestamp or datetime.fromisoformat(e['timestamp'])
+    finish=resolution.finished_at
+    if 'finished_at' not in resolution.model_fields_set and e.get('finished_at'):
+        finish=datetime.fromisoformat(e['finished_at'])+(start-datetime.fromisoformat(e['timestamp']))
+    try:validate_finish(start,finish)
+    except ValueError as exc:raise HTTPException(422,str(exc))
+    if finish is not None or 'finished_at' in resolution.model_fields_set:e['finished_at']=finish.isoformat() if finish else None
     barcode_changed=resolution.barcode is not None and resolution.barcode!=e.get('barcode')
     if barcode_changed:
         e.pop('food',None);e.pop('source',None);e['bls_code']=None
@@ -662,7 +684,7 @@ async def edit_recipe(id: UUID, body: RecipeEdit):
             for old in entries:
                 if old.get('recipe_id') or old.get('type')!='recipe' or old.get('source',{}).get('recipe_id')!=str(id):continue
                 q=old['quantity']
-                replacement=recipe_entry(details,RecipeIntake(id=old['id'],timestamp=old['timestamp'],amount=q['value'],unit=q['unit']))
+                replacement=recipe_entry(details,RecipeIntake(id=old['id'],timestamp=old['timestamp'],finished_at=old.get('finished_at'),amount=q['value'],unit=q['unit']))
                 changes={k:replacement.get(k) for k in ('description','source','recipe_snapshot','nutrients','warnings','reason','status','drinking_water_ml','ethanol_g')}
                 if all(old.get(k)==v for k,v in changes.items()):continue
                 audit=DATA/'originals'/f"{old['id']}-revision-{old.get('revision',1)}.json"
@@ -680,12 +702,14 @@ async def edit_recipe(id: UUID, body: RecipeEdit):
 class RecipeIntake(BaseModel):
     id: UUID
     timestamp: datetime
+    finished_at: datetime | None = None
     unit: Literal['portion','fraction','g','ml']
     amount: float = Field(gt=0, allow_inf_nan=False)
 
     @model_validator(mode='after')
     def timezone_required(self):
         if self.timestamp.utcoffset() is None: raise ValueError('timestamp requires timezone')
+        validate_finish(self.timestamp,self.finished_at)
         if self.unit=='fraction' and self.amount>1: raise ValueError('Fraction must be at most 1')
         return self
 
@@ -696,7 +720,7 @@ def recipe_entry(r,body):
         raise HTTPException(422,'Set finished recipe weight before logging grams')
     if body.unit=='ml' and not r.get('finished_volume_ml'):raise HTTPException(422,'Set total drink volume before logging ml')
     factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount/r['finished_volume_ml'] if body.unit=='ml' else body.amount
-    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':{**{k:v for k,v in r.items() if k not in ('raw_nutrients','raw_ingredients')},'nutrients':r['raw_nutrients'],'ingredients':r['raw_ingredients']},'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['raw_nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
+    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'finished_at':body.finished_at.isoformat() if body.finished_at else None,'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':{**{k:v for k,v in r.items() if k not in ('raw_nutrients','raw_ingredients')},'nutrients':r['raw_nutrients'],'ingredients':r['raw_ingredients']},'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['raw_nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
     ethanol=r['ethanol_g']
     if r['drinking_water_ml']: e['drinking_water_ml']=r['drinking_water_ml']*factor
     if ethanol: e['ethanol_g']=ethanol*factor

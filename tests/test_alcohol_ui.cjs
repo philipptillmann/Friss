@@ -15,9 +15,10 @@ const context=vm.createContext({words:{de:{},en:{}},lang:'de',t:k=>k,document:{g
 vm.runInContext(fs.readFileSync('app/static/bac.js','utf8'),context);
 (async()=>{
  $('alcoholMode').value='g';$('alcoholAmount').value='20';$('alcoholName').value='Test';$('alcoholTime').value='2026-10-12T18:15:00';
+ $('alcoholFinish').value='2026-10-12T19:15:00';
  fail=true;const event={preventDefault(){},submitter:element()};
  await $('alcoholForm').onsubmit(event);
- assert.equal(posts[0].body.quantity.unit,'g');assert.equal(posts[0].body.quantity.value,20);assert.equal(posts[0].body.alcohol_abv,undefined);
+ assert.equal(posts[0].body.finished_at,'2026-10-12T19:15:00.000Z');assert.equal(posts[0].body.quantity.unit,'g');assert.equal(posts[0].body.quantity.value,20);assert.equal(posts[0].body.alcohol_abv,undefined);
  assert.equal($('alcoholTime').disabled,true);
  $('alcoholAmount').value='50';await $('alcoholForm').onsubmit(event);
  assert.deepEqual(posts[1].body,posts[0].body,'uncertain manual transfer must retry identical ID and input');

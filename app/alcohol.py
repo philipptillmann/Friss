@@ -1,8 +1,8 @@
 """BAC estimates from actual journal entries and the saved body profile.
 
-Exponential absorption with a shared rate; elimination stops at zero. Between
-intake events gut alcohol decays monotonically, so each interval is integrated
-analytically. No elimination debt is carried across sober gaps.
+Uniform drinking between start and finish (or instantaneous intake if omitted).
+Exponential absorption with a shared rate; elimination stops at zero. Between intake-rate changes, absorption is integrated analytically, including
+reflection at zero when absorption initially falls below elimination. No elimination debt is carried across sober gaps.
 """
 import json
 import math
@@ -18,22 +18,42 @@ def alcohol_entries(records):
 
 def estimate(records, profile, moments):
     if not profile:return [None for _ in moments]
-    events=[(datetime.fromisoformat(e['timestamp']),e['ethanol_g'])
-            for e in alcohol_entries(records) if e['status']=='processed' and e.get('ethanol_g',0)>0]
-    result=[];index=0;gut=0;bac=0;previous=None
+    events=[]
+    for e in alcohol_entries(records):
+        if e['status']!='processed' or e.get('ethanol_g',0)<=0:continue
+        start=datetime.fromisoformat(e['timestamp'])
+        finish=datetime.fromisoformat(e['finished_at']) if e.get('finished_at') else start
+        if finish>start:
+            rate=e['ethanol_g']/((finish-start).total_seconds()/3600)
+            events.extend([(start,0,rate),(finish,0,-rate)])
+        else:events.append((start,e['ethanol_g'],0))
+    events.sort(key=lambda event:event[0])
+    result=[];index=0;gut=0;bac=0;previous=None;input_rate=0
     scale=.1/(profile['mass_kg']*profile['distribution'])
     absorption=profile['absorption_per_hour'];elimination=profile['elimination_percent_per_hour']
     def advance(to):
         nonlocal previous,gut,bac
         if previous is not None:
             hours=(to-previous).total_seconds()/3600
-            absorbed=gut*(-math.expm1(-absorption*hours))
-            gut-=absorbed
-            bac=max(0,bac+scale*absorbed-elimination*hours)
+            decay=-math.expm1(-absorption*hours)
+            absorbed=gut*decay+input_rate*(hours-decay/absorption)
+            # With continuous drinking absorption can rise through elimination.
+            # Reflect at zero at the interior minimum, rather than accumulating
+            # a negative alcohol balance before absorption overtakes elimination.
+            initial=scale*absorption*gut-elimination
+            final=scale*(input_rate+(absorption*gut-input_rate)*math.exp(-absorption*hours))-elimination
+            if initial<0<final:
+                crossing=-math.log((input_rate-elimination/scale)/(input_rate-absorption*gut))/absorption
+                first_decay=-math.expm1(-absorption*crossing)
+                first_absorbed=gut*first_decay+input_rate*(crossing-first_decay/absorption)
+                bac=max(0,bac+scale*first_absorbed-elimination*crossing)
+                bac=max(0,bac+scale*(absorbed-first_absorbed)-elimination*(hours-crossing))
+            else:bac=max(0,bac+scale*absorbed-elimination*hours)
+            gut=max(0,gut+input_rate*hours-absorbed)
         previous=to
     for moment in moments:
         while index<len(events) and events[index][0]<=moment:
-            at,grams=events[index];advance(at);gut+=grams;index+=1
+            at,grams,rate_change=events[index];advance(at);gut+=grams;input_rate=max(0,input_rate+rate_change);index+=1
         advance(moment);result.append(bac)
     return result
 

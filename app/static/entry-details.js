@@ -13,6 +13,7 @@ function renderEntryDetails(setTime=false){
  detailMetadata('captureMethod',t(e.capture_method==='json_import'?'detailJsonImport':e.capture_method==='recent'?'detailRecent':e.capture_method==='favorite'?'detailFavorite':method||e.type));
  if(e.import_context?.title)detailMetadata('jsonMealTitle',e.import_context.title);
  if(e.import_context?.notes)detailMetadata('jsonItemNotes',e.import_context.notes);
+ if(e.finished_at){detailMetadata('drinkFinish',new Date(e.finished_at).toLocaleString(lang));const hours=(Date.parse(e.finished_at)-Date.parse(e.timestamp))/3600000;if(hours>0&&e.ethanol_g>0)detailMetadata('drinkSpeed',formatHome(e.ethanol_g/hours)+' g/h');}
  detailMetadata('time',new Date(e.timestamp).toLocaleString(lang));
  detailMetadata('entryQuantity',e.quantity?formatHome(e.quantity.value)+' '+t(e.quantity.unit==='portion'?'portions':e.quantity.unit==='fraction'?'fraction':e.quantity.unit):'—');
  detailMetadata('healthState',e.recipe_id?'—':t(e.health_status));
@@ -23,6 +24,7 @@ function renderEntryDetails(setTime=false){
  detailMetadata('entryId',e.id);
  if(setTime){
  const d=new Date(e.timestamp);
+ const finish=e.finished_at?new Date(e.finished_at):null;$('detailFinish').value=finish?new Date(finish-finish.getTimezoneOffset()*60000).toISOString().slice(0,19):'';
  $('detailTime').value=localDate(d)+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
  }
  $('detailHealthHint').textContent=t('detailTimeHint');
@@ -50,7 +52,7 @@ $('detailTimeForm').onsubmit=async event=>{
  const id=detailedEntry.id,value=$('detailTime').value,button=$('detailTimeSave');button.disabled=true;
  try{
  const timestamp=new Date(value).toISOString();
- await api('/entries/'+id+'/time',{method:'PATCH',body:JSON.stringify({timestamp})});
+ await api('/entries/'+id+'/time',{method:'PATCH',body:JSON.stringify({timestamp,finished_at:$('detailFinish').value?new Date($('detailFinish').value).toISOString():null})});
  $('day').value=localDate(new Date(timestamp));
  await refresh();if(currentPage==='entry'&&detailEntryId()===id)await loadEntryDetails(id);message(t('saved'));
  }catch(e){message(e.message,true);}finally{button.disabled=!detailedEntry;}

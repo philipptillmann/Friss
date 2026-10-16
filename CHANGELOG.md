@@ -1,3 +1,9 @@
+## 1.26.0 — Trinkdauer im BAC-Verlauf
+
+- Optionalen Zeitpunkt des letzten Schlucks bei manuellen Getränken, Rezeptverzehr und in Eintragsdetails erfassen.
+- Alkohol gleichmäßig über die Trinkdauer zuführen; analytische Absorption / Elimination mit überlappenden Getränken und Mitternachtswechsel.
+- Trinkdauer bei Kopien und rückwirkenden Rezeptkorrekturen erhalten; Einträge ohne Endzeit behalten die bisherige Berechnung.
+
 ## 1.25.0 — Getränke und rückwirkende Rezeptkorrekturen
 
 - Alkoholseite in Getränke umbenennen: Schnellwahl, Getränkerezepte mit Zutaten / Gesamtvolumen / finalem ABV, danach manuelle Eingabe und BAC.

@@ -379,3 +379,16 @@ Alle betroffenen Tagebucheinträge und die Rezeptdefinition werden gemeinsam ges
 Bereits exportierte oder reservierte **Apple-Health-Werte werden nicht rückwirkend auf dem iPhone geändert**. Der Health-Export zeigt betroffene Tagesexporte als geändert; notwendige Korrekturen sind auf dem iPhone vorzunehmen. Exportstatus und unveränderliche Exportpakete bleiben als Nachweis erhalten.
 
 API: Rezeptdefinitionen unterstützen `category: food|drink`, `finished_volume_ml` und optional `alcohol_abv`. `PATCH /recipes/{id}/category` verschiebt eine Definition. `PUT /recipes/{id}` mit `amend_existing: true` korrigiert direkt gebuchte Einträge und liefert `amended_entries`; standardmäßig ist dieser Schalter aus. Rezeptverzehr und Schnellwahl unterstützen zusätzlich die Einheit `ml`.
+
+
+## Trinkdauer und BAC (1.26.0)
+
+Bei manueller Getränkeeingabe und Rezeptverzehr kann zusätzlich **Letzter Schluck** angegeben werden. Der normale Zeitpunkt ist der erste Schluck. Auch in den Details eines bestehenden Eintrags (einschließlich Schnellwahl-Buchungen) kann die Endzeit ergänzt, geändert oder geleert werden. Für Getränke über Mitternacht das Datum des Folgetags wählen. Die Endzeit muss mit Zeitzone nach oder gleich dem Start liegen.
+
+Die BAC-Schätzung verteilt die gesamte Alkoholmenge gleichmäßig vom ersten bis zum letzten Schluck. Aus Alkoholgramm / Trinkstunden ergibt sich die modellierte Trinkgeschwindigkeit, die in den Eintragsdetails angezeigt wird. Auf diese zeitlich verteilte Aufnahme folgen die eingestellte Absorption und der Abbau. Gleichzeitig konsumierte Getränke werden gemeinsam berechnet. Es wird kein negativer Alkoholvorrat über nüchterne Phasen angesammelt.
+
+Ohne Endzeit oder bei identischen Start- / Endzeiten wird die bisherige sofortige Aufnahme mit anschließender Absorption verwendet. Eine in der Zukunft liegende Endzeit beschreibt eine Prognose für den restlichen Trinkverlauf. Das Modell nimmt gleichmäßiges Trinken an; individuelle Schluckfolgen sind unbekannt. BAC bleibt eine Schätzung, kein Messwert und keine Grundlage für Fahrentscheidungen.
+
+Nährwerte und die gesamte Alkoholmenge werden weiterhin am Startzeitpunkt im Tagebuch gebucht; die Endzeit verändert nur den modellierten BAC-Verlauf. Beim Kopieren auf einen anderen Zeitpunkt verschiebt sich die Endzeit mit, sodass die Dauer gleich bleibt. Rezeptkorrekturen behalten beide Zeitpunkte bei. Änderungen an Start / Ende werden bei vorbereiteten Health-Tagesexporten als Datenänderung erkannt; Apple Health wird dadurch nicht automatisch geändert.
+
+API: `finished_at` ist ein optionaler Zeitpunkt mit Zeitzone auf `POST /entries`, Rezeptverzehr und `PATCH /entries/{id}/time`. `null` entfernt die Endzeit bei der Zeitbearbeitung. Wird nur der Start geändert und `finished_at` weggelassen, bleibt die Dauer erhalten.
