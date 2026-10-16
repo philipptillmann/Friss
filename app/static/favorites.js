@@ -39,7 +39,7 @@ function renderReusable(){
 }
 function useReusable(item){
  if(attempt||editing){message(t('reusePending'),true);return;}
- if(currentPage!=='recipes'&&currentPage!=='meals'){location.hash='meals';showPage('meals');}
+ if(currentPage!=='recipes'&&currentPage!=='alcohol'&&currentPage!=='meals'){location.hash='meals';showPage('meals');}
  const e=item.entry,kind=e.type==='drink'?e.drink:e.type;
  $('kind').value=kind;$('alcoholEntryMode').value=kind==='alcohol'&&e.quantity?.unit==='g'?'g':'ml';kindChange();if(kind==='manual'){ensureManualOption('manualCaptureSelect',e.manual_id,reusableName(item));updateManualCaptureInfo();}reusedVia=item.id?'favorite':'recent';
  if(kind==='item'){selected={bls_code:e.bls_code,display_name:reusableName(item)};$('selected').textContent=reusableName(item);$('search').value=reusableName(item);}
@@ -112,11 +112,11 @@ async function deleteFavorite(favorite){
  try{await api('/favorites/'+favorite.id+'?version='+favorite.version,{method:'DELETE'});if(favoriteEditing?.id===favorite.id)editFavorite();await loadReusable();message(t('deleted'));}
  catch(e){message(e.message,true);}
 }
-window.addEventListener('friss-data-updated',()=>{if(['meals','recipes','favorites'].includes(currentPage))loadReusable();});
-window.addEventListener('friss-page',()=>{if(['meals','recipes','favorites'].includes(currentPage)&&!$('dashboard').hidden)loadReusable();});
+window.addEventListener('friss-data-updated',()=>{if(['meals','recipes','alcohol','favorites'].includes(currentPage))loadReusable();});
+window.addEventListener('friss-page',()=>{if(['meals','recipes','alcohol','favorites'].includes(currentPage)&&!$('dashboard').hidden)loadReusable();});
 window.addEventListener('friss-logout',()=>{reuseGeneration++;favoriteSearchGeneration++;recentIngredients=[];favoriteItems=[];reuseMode=null;favoriteEditing=null;favoriteDraft=null;$('reuseSearch').value='';$('favoriteForm').reset();$('favoriteFoodResults').replaceChildren();renderReusable();favoriteFields();});
 new MutationObserver(()=>{renderReusable();favoriteFields();$('favoriteEditorTitle').textContent=t(favoriteEditing?'editFavorite':'newFavorite');}).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 favoriteFields();translate();
-if(!$('dashboard').hidden&&['meals','recipes','favorites'].includes(currentPage))loadReusable();
+if(!$('dashboard').hidden&&['meals','recipes','alcohol','favorites'].includes(currentPage))loadReusable();
 
 $('favoriteAlcoholMode').onchange=favoriteFields;

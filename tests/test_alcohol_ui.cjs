@@ -27,6 +27,6 @@ vm.runInContext(fs.readFileSync('app/static/bac.js','utf8'),context);
  $('alcoholTime').value='2026-10-12T20:00:00';
  const tile=$('alcoholQuickButtons').children[0];fail=true;await tile.onclick();await $('alcoholQuickButtons').children[0].onclick();
  assert.equal(posts[3].path,'/quick-buttons/quick/intake');assert.deepEqual(posts[4].body,posts[3].body);
- assert.equal(posts[3].body.timestamp,'2026-10-12T20:00:00.000Z');
+ assert.ok(Math.abs(Date.now()-Date.parse(posts[3].body.timestamp))<10000,'quick add uses now instead of the manual-entry time');
  console.log('Alcohol journal UI: grams, ABV, custom times and idempotent manual/quick retries passed');
 })().catch(e=>{console.error(e);process.exitCode=1});

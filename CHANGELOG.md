@@ -1,3 +1,10 @@
+## 1.25.0 — Getränke und rückwirkende Rezeptkorrekturen
+
+- Alkoholseite in Getränke umbenennen: Schnellwahl, Getränkerezepte mit Zutaten / Gesamtvolumen / finalem ABV, danach manuelle Eingabe und BAC.
+- Bestehende Rezepte zwischen Lebensmittel- und Getränkerezepten verschieben, ohne IDs, Zutaten oder Schnellwahl-Verknüpfungen zu ändern.
+- Definitionen nur für künftige Einträge speichern oder nach Bestätigung bereits gebuchte Portionen neu berechnen; Mengen und Zeiten bleiben erhalten.
+- Vorherige Eintragsstände archivieren und Health-Exportänderungen anzeigen; Apple Health wird nicht automatisch korrigiert.
+
 ## 1.24.0 — Nährwertetiketten lokal scannen
 
 - Unter Eigene Zutaten ein Etikett fotografieren und erkannte Nährwerte pro 100 g vor dem Speichern prüfen.

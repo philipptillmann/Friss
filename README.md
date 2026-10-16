@@ -351,3 +351,31 @@ Die Vorschläge erscheinen in der Zutatenmaske. Den Lebensmittelnamen selbst ein
 Die erste Version übernimmt eindeutig erkannte Werte **pro 100 g**, inklusive der unterstützten Etikett-Nährstoffe. Sie rechnet kJ bei fehlenden kcal in kcal und Salz in Natrium um (Salz / 2,5). Unbekannte, weniger-als-Angaben und mehrdeutige Spalten bleiben leer. **100 ml**, Portionsangaben, US Nutrition Facts und nicht lesbare Bezugsgrößen erfordern manuelle Umrechnung / Eingabe und werden nicht automatisch übernommen. Kohlenhydrate werden als europäische Angaben ohne weiteren Ballaststoffabzug übernommen.
 
 `./update.sh` baut das Docker-Image einschließlich Tesseract und der deutschen / englischen Sprachdateien neu. OCR-Endpunkt: authentifiziertes `POST /manual-ingredients/scan-label` mit Bildbytes, bis 10 MiB und 16 Megapixel. Verarbeitung mit Zeitlimit; JPEG, PNG und WebP werden unterstützt. Die iPhone-Oberfläche konvertiert das Foto vor dem Upload.
+
+
+## Getränke und Rezeptkorrekturen (1.25.0)
+
+Die bisherige Alkoholseite heißt **Getränke**. Zuerst erscheinen die konfigurierten Schnellwahltasten wie auf Home; sie buchen zum aktuellen Zeitpunkt. Danach folgt die Verwaltung der **Getränkerezepte**, anschließend bleiben manuelle alkoholische Getränke (reiner Alkohol oder ml / Volumenprozent) und der BAC-Verlauf verfügbar.
+
+### Getränkerezepte erstellen und verwenden
+
+Auf Getränke **Neues Rezept** wählen, Namen, Portionenzahl und bei Bedarf Gesamtvolumen in ml festlegen. Zutaten wie bei Lebensmittelrezepten per BLS-Suche, Barcode, Fotozuordnung, eigene Zutat, Favorit, zuletzt benutzt oder JSON erfassen. Eigene Zutaten und JSON-Import erlauben die Vorgabe eigener Nährwerte. Fehlende Werte werden nicht erfunden. Getrunkenes Wasser, Koffein und zusätzliche Alkoholgramm können wie bei Rezepten ergänzt werden.
+
+Optional den **finalen Alkoholgehalt des gesamten Getränks** in Volumenprozent angeben. Dafür ist das Gesamtvolumen nötig. Diese Angabe ersetzt die Alkoholberechnung aus den Zutaten: Alkoholgramm = Volumen × ABV / 100 × 0,789. Nicht gleichzeitig zusätzliche reine Alkoholgramm angeben. Ohne finalen ABV gilt weiterhin die Alkoholmenge aus den Zutaten plus der Zusatzangabe. Kalorien und übrige Nährwerte kommen aus den Zutaten; aus ABV werden keine zusätzlichen Kalorien geschätzt.
+
+**Getränk eintragen** öffnet die normale Mahlzeitenerfassung mit dem Getränkerezept. Eine Portion, ein Anteil, Gramm (mit fertigem Gewicht) oder ml (mit Gesamtvolumen) können gebucht werden. In den Schnellwahleinstellungen sind Getränkerezepte ebenfalls verknüpfbar; die gewählte Menge wird zusammen mit allen Nährwerten ins Tagebuch eingetragen.
+
+### Vorhandene Rezepte migrieren
+
+Auf **Rezepte** ein gespeichertes Rezept auswählen und **Als Getränk verschieben** bestätigen. Zutaten, Rezept-ID und Schnellwahl-Verknüpfungen bleiben erhalten. Auf Getränke erscheint das verschobene Rezept und kann ergänzt werden. Vorhandene Tagebucheinträge behalten bei der Migration ihre bisherigen Werte. Das Verschieben zurück zu Lebensmittelrezepten ist ebenfalls möglich; einen finalen ABV vorher entfernen. Nicht gespeicherte Formularänderungen werden beim Verschieben verworfen.
+
+### Zwei Speichermöglichkeiten
+
+- **Nur für zukünftige Einträge speichern** verändert die Definition für künftige Buchungen. Bereits gespeicherte Rezeptportionen bleiben unverändert. Zutatenänderungen werden wie bisher direkt am Rezept gespeichert.
+- **Speichern und bisherige Einträge korrigieren** berechnet nach Sicherheitsabfrage alle direkt mit dieser Rezept-ID gebuchten Tagebucheinträge erneut, einschließlich kopierter Einträge. Die jeweils konsumierte Portion / Grammzahl / ml-Menge und Uhrzeit bleiben gleich; Mengen werden anhand der korrigierten Portionenzahl, des fertigen Gewichts oder Gesamtvolumens neu berechnet. Verschachtelte oder separat duplizierte Rezepte sind eigenständige Definitionen und werden nicht geändert.
+
+Alle betroffenen Tagebucheinträge und die Rezeptdefinition werden gemeinsam gespeichert. Wenn ein Eintrag nicht berechenbar ist (etwa Gramm-Verzehr ohne neues Gesamtgewicht), wird die Änderung vollständig abgelehnt. Vorherige Eintragsstände liegen unverändert unter `originals/<ID>-revision-<Revision>.json`; die ursprüngliche Originaldatei bleibt erhalten. Ein erneuter identischer Korrekturaufruf ändert bereits korrigierte Einträge nicht nochmals.
+
+Bereits exportierte oder reservierte **Apple-Health-Werte werden nicht rückwirkend auf dem iPhone geändert**. Der Health-Export zeigt betroffene Tagesexporte als geändert; notwendige Korrekturen sind auf dem iPhone vorzunehmen. Exportstatus und unveränderliche Exportpakete bleiben als Nachweis erhalten.
+
+API: Rezeptdefinitionen unterstützen `category: food|drink`, `finished_volume_ml` und optional `alcohol_abv`. `PATCH /recipes/{id}/category` verschiebt eine Definition. `PUT /recipes/{id}` mit `amend_existing: true` korrigiert direkt gebuchte Einträge und liefert `amended_entries`; standardmäßig ist dieser Schalter aus. Rezeptverzehr und Schnellwahl unterstützen zusätzlich die Einheit `ml`.

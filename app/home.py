@@ -85,7 +85,7 @@ def nutrient_values(e,missing_as_zero=False):
                 if bls_units.numeric(value):values[key]={'value':value*e['quantity']['value']/100,'unit':unit}
                 else:values[key]={'value':None,'unit':unit,'qualifier':value}
     if e.get('recipe_snapshot'):
-        r=e['recipe_snapshot'];q=e['quantity'];factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']
+        r=e['recipe_snapshot'];q=e['quantity'];factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']/r['finished_volume_ml'] if q['unit']=='ml' else q['value']
         ingredients=[nutrient_values(i,missing_as_zero) for i in r['ingredients']]
         common=set.intersection(*(set(v) for v in ingredients)) if ingredients else set()
         for key in common-set(values):
@@ -117,7 +117,7 @@ def food_water_values(e, missing_as_zero=False):
         return [{'value': 0, 'unit': 'g'}]
     if e.get('recipe_snapshot'):
         r=e['recipe_snapshot'];q=e['quantity']
-        factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']
+        factor=q['value']/r['servings'] if q['unit']=='portion' else q['value']/r['finished_weight_g'] if q['unit']=='g' else q['value']/r['finished_volume_ml'] if q['unit']=='ml' else q['value']
         terms=[term for ingredient in r['ingredients'] for term in food_water_values(ingredient,missing_as_zero)]
         return [{**term,'value':term['value']*factor if term.get('value') is not None else None} for term in terms] or ([{'value':0,'unit':'g'}] if e.get('drinking_water_ml',0)>0 else [])
     term=nutrient_values(e,missing_as_zero).get('dietaryWater')
@@ -215,6 +215,7 @@ def install(app, db, auth, Entry, create, load_recipe, RecipeIntake, recipe_inta
                     RecipeIntake(id=b.id,timestamp=datetime.now(timezone.utc),amount=q.get('value'),unit=q.get('unit'))
                 except ValidationError: raise HTTPException(422,'Invalid recipe serving')
                 if q.get('unit')=='g' and not recipe.get('finished_weight_g'): raise HTTPException(422,'Recipe finished weight required for grams')
+                if q.get('unit')=='ml' and not recipe.get('finished_volume_ml'):raise HTTPException(422,'Recipe volume required for ml')
                 continue
             if b.entry.recipe_id is not None: raise HTTPException(422,'Use recipe type to link a recipe')
             try:

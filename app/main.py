@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.24.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.25.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -508,24 +508,30 @@ async def prevent_stale_dashboard(request: Request, call_next):
     return response
 
 
-class Recipe(BaseModel):
-    id: UUID
+class RecipeFields(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    category: Literal['food','drink'] = 'food'
     servings: float = Field(gt=0, allow_inf_nan=False)
-    finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
-    notes: str = Field(default='', max_length=10000)
-    added_water_ml: float = Field(default=0, ge=0, allow_inf_nan=False)
-    added_caffeine_mg: float = Field(default=0, ge=0, allow_inf_nan=False)
-    added_ethanol_g: float = Field(default=0, ge=0, allow_inf_nan=False)
+    finished_weight_g: float | None = Field(default=None,gt=0,allow_inf_nan=False)
+    finished_volume_ml: float | None = Field(default=None,gt=0,allow_inf_nan=False)
+    alcohol_abv: float | None = Field(default=None,ge=0,le=100,allow_inf_nan=False)
+    notes: str = Field(default='',max_length=10000)
+    added_water_ml: float = Field(default=0,ge=0,allow_inf_nan=False)
+    added_caffeine_mg: float = Field(default=0,ge=0,allow_inf_nan=False)
+    added_ethanol_g: float = Field(default=0,ge=0,allow_inf_nan=False)
+    @model_validator(mode='after')
+    def alcohol_basis(self):
+        if self.alcohol_abv is not None:
+            if self.category!='drink' or not self.finished_volume_ml:raise ValueError('ABV needs a drink and its total volume in ml')
+            if self.added_ethanol_g:raise ValueError('Use total ABV OR additional ethanol, not both')
+        return self
 
-class RecipeEdit(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    servings: float = Field(gt=0, allow_inf_nan=False)
-    finished_weight_g: float | None = Field(default=None, gt=0, allow_inf_nan=False)
-    notes: str = Field(default='', max_length=10000)
-    added_water_ml: float = Field(default=0, ge=0, allow_inf_nan=False)
-    added_caffeine_mg: float = Field(default=0, ge=0, allow_inf_nan=False)
-    added_ethanol_g: float = Field(default=0, ge=0, allow_inf_nan=False)
+class Recipe(RecipeFields):
+    id: UUID
+
+class RecipeEdit(RecipeFields):
+    amend_existing: bool = False
+
 
 def load_recipe(id):
     with db() as c:
@@ -537,7 +543,7 @@ def recipe_details(recipe):
     with db() as c:
         ingredients=[json.loads(r['payload']) for r in c.execute('SELECT payload FROM entries')]
     ingredients=[e for e in ingredients if e.get('recipe_id')==recipe['id']]
-    additions=any(recipe.get(k,0)>0 for k in ['added_water_ml','added_caffeine_mg','added_ethanol_g'])
+    additions=recipe.get('alcohol_abv') is not None or any(recipe.get(k,0)>0 for k in ['added_water_ml','added_caffeine_mg','added_ethanol_g'])
     missing_as_zero=nutrient_policy.enabled(db)
     ready=(bool(ingredients) or additions) and all(nutrient_policy.ready(e) if missing_as_zero else e['status']=='processed' for e in ingredients)
     totals={}
@@ -560,6 +566,7 @@ def recipe_details(recipe):
         n=ingredient.get('nutrients',{}).get('dietaryCaffeine')
         if n and n['unit'] in mass: caffeine+=n['value']*mass[n['unit']]*1000
         if ingredient.get('drink')=='water': water+=ingredient.get('nutrients',{}).get('dietaryWater',{}).get('value',0)
+    if recipe.get('alcohol_abv') is not None:ethanol=recipe['finished_volume_ml']*recipe['alcohol_abv']/100*.789
     if caffeine: totals['dietaryCaffeine']={'value':caffeine,'unit':'mg'}
     if water: totals['dietaryWater']={'value':water,'unit':'ml'}
     blocked=any(bls_units.blocked(e) for e in ingredients)
@@ -624,17 +631,56 @@ async def duplicate_recipe(id: UUID,body: RecipeDuplicate):
 async def get_recipe(id: UUID):
     return recipe_details(load_recipe(id))
 
+class RecipeCategory(BaseModel):
+    category: Literal['food','drink']
+
+@app.patch('/recipes/{id}/category',dependencies=[Depends(auth)])
+async def migrate_recipe(id: UUID,body: RecipeCategory):
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row=c.execute('SELECT payload FROM recipes WHERE id=?',(str(id),)).fetchone()
+        if not row:raise HTTPException(404,'Recipe not found')
+        r=json.loads(row['payload'])
+        if body.category=='food' and r.get('alcohol_abv') is not None:raise HTTPException(422,'Remove ABV before moving a drink to food recipes')
+        r['category']=body.category
+        c.execute('UPDATE recipes SET payload=? WHERE id=?',(json.dumps(r),str(id)))
+    return recipe_details(r)
+
 @app.put('/recipes/{id}', dependencies=[Depends(auth)])
 async def edit_recipe(id: UUID, body: RecipeEdit):
-    previous=load_recipe(id)
-    r={**{k:previous[k] for k in ('copied_from','duplicate_request') if k in previous},'id':str(id),**body.model_dump(mode='json')}
-    with db() as c: c.execute('UPDATE recipes SET payload=? WHERE id=?',(json.dumps(r),str(id)))
-    return recipe_details(r)
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        row=c.execute('SELECT payload FROM recipes WHERE id=?',(str(id),)).fetchone()
+        if not row:raise HTTPException(404,'Recipe not found')
+        previous=json.loads(row['payload'])
+        r={**{k:previous[k] for k in ('copied_from','duplicate_request') if k in previous},'id':str(id),**body.model_dump(mode='json',exclude={'amend_existing'})}
+        updated=[]
+        if body.amend_existing:
+            details=recipe_details(r)
+            if details['status']!='ready':raise HTTPException(409,'Resolve ingredients before amending logged entries')
+            entries=[json.loads(row['payload']) for row in c.execute('SELECT payload FROM entries')]
+            for old in entries:
+                if old.get('recipe_id') or old.get('type')!='recipe' or old.get('source',{}).get('recipe_id')!=str(id):continue
+                q=old['quantity']
+                replacement=recipe_entry(details,RecipeIntake(id=old['id'],timestamp=old['timestamp'],amount=q['value'],unit=q['unit']))
+                changes={k:replacement.get(k) for k in ('description','source','recipe_snapshot','nutrients','warnings','reason','status','drinking_water_ml','ethanol_g')}
+                if all(old.get(k)==v for k,v in changes.items()):continue
+                audit=DATA/'originals'/f"{old['id']}-revision-{old.get('revision',1)}.json"
+                text=json.dumps(old,ensure_ascii=False)
+                if audit.exists() and audit.read_text()!=text:raise HTTPException(409,'Existing revision archive differs')
+                if not audit.exists():audit.write_text(text)
+                entry={**old,**{k:v for k,v in changes.items() if v is not None},'revision':old.get('revision',1)+1}
+                for key in ('drinking_water_ml','ethanol_g'):
+                    if changes[key] is None:entry.pop(key,None)
+                c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(entry),entry['id']))
+                updated.append(entry['id'])
+        c.execute('UPDATE recipes SET payload=? WHERE id=?',(json.dumps(r),str(id)))
+    return {**recipe_details(r),'amended_entries':len(updated)}
 
 class RecipeIntake(BaseModel):
     id: UUID
     timestamp: datetime
-    unit: Literal['portion','fraction','g']
+    unit: Literal['portion','fraction','g','ml']
     amount: float = Field(gt=0, allow_inf_nan=False)
 
     @model_validator(mode='after')
@@ -642,6 +688,19 @@ class RecipeIntake(BaseModel):
         if self.timestamp.utcoffset() is None: raise ValueError('timestamp requires timezone')
         if self.unit=='fraction' and self.amount>1: raise ValueError('Fraction must be at most 1')
         return self
+
+
+def recipe_entry(r,body):
+    if r['status']!='ready': raise HTTPException(409,'Resolve all ingredients and quantities first')
+    if body.unit=='g' and not r['finished_weight_g']:
+        raise HTTPException(422,'Set finished recipe weight before logging grams')
+    if body.unit=='ml' and not r.get('finished_volume_ml'):raise HTTPException(422,'Set total drink volume before logging ml')
+    factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount/r['finished_volume_ml'] if body.unit=='ml' else body.amount
+    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':{**{k:v for k,v in r.items() if k not in ('raw_nutrients','raw_ingredients')},'nutrients':r['raw_nutrients'],'ingredients':r['raw_ingredients']},'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['raw_nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
+    ethanol=r['ethanol_g']
+    if r['drinking_water_ml']: e['drinking_water_ml']=r['drinking_water_ml']*factor
+    if ethanol: e['ethanol_g']=ethanol*factor
+    return e
 
 @app.post('/recipes/{id}/intake', status_code=201, dependencies=[Depends(auth)])
 async def recipe_intake(id:UUID, body:RecipeIntake):
@@ -653,14 +712,7 @@ async def recipe_intake(id:UUID, body:RecipeIntake):
         if old['fingerprint']!=fingerprint: raise HTTPException(409,'ID already used')
         return json.loads(old['payload'])
     r=recipe_details(load_recipe(id))
-    if r['status']!='ready': raise HTTPException(409,'Resolve all ingredients and quantities first')
-    if body.unit=='g' and not r['finished_weight_g']:
-        raise HTTPException(422,'Set finished recipe weight before logging grams')
-    factor=body.amount / r['servings'] if body.unit=='portion' else body.amount / r['finished_weight_g'] if body.unit=='g' else body.amount
-    e={'id':str(body.id),'type':'recipe','timestamp':body.timestamp.isoformat(),'status':'processed','health_status':'pending','revision':1,'description':r['name'],'quantity':{'value':body.amount,'unit':body.unit},'source':{'provider':'BLS' if r['health_blocked'] else 'Recipe','recipe_id':r['id']},'recipe_snapshot':{**{k:v for k,v in r.items() if k not in ('raw_nutrients','raw_ingredients')},'nutrients':r['raw_nutrients'],'ingredients':r['raw_ingredients']},'nutrients':{k:{'value':v['value']*factor,'unit':v['unit']} for k,v in r['raw_nutrients'].items()},'warnings':r['warnings']+['Nutrients missing in any ingredient remain unknown; cooking losses are not modelled'],'reason':None}
-    ethanol=r['ethanol_g']
-    if r['drinking_water_ml']: e['drinking_water_ml']=r['drinking_water_ml']*factor
-    if ethanol: e['ethanol_g']=ethanol*factor
+    e=recipe_entry(r,body)
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         old=c.execute('SELECT fingerprint,payload FROM entries WHERE id=?',(e['id'],)).fetchone()
