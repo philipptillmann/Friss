@@ -392,3 +392,10 @@ Ohne Endzeit oder bei identischen Start- / Endzeiten wird die bisherige sofortig
 Nährwerte und die gesamte Alkoholmenge werden weiterhin am Startzeitpunkt im Tagebuch gebucht; die Endzeit verändert nur den modellierten BAC-Verlauf. Beim Kopieren auf einen anderen Zeitpunkt verschiebt sich die Endzeit mit, sodass die Dauer gleich bleibt. Rezeptkorrekturen behalten beide Zeitpunkte bei. Änderungen an Start / Ende werden bei vorbereiteten Health-Tagesexporten als Datenänderung erkannt; Apple Health wird dadurch nicht automatisch geändert.
 
 API: `finished_at` ist ein optionaler Zeitpunkt mit Zeitzone auf `POST /entries`, Rezeptverzehr und `PATCH /entries/{id}/time`. `null` entfernt die Endzeit bei der Zeitbearbeitung. Wird nur der Start geändert und `finished_at` weggelassen, bleibt die Dauer erhalten.
+
+
+### API-Schlüssel auf dem iPhone kopieren (1.26.1)
+
+Unter **Einstellungen → API für Kurzbefehle → API-Schlüssel anzeigen** wird nach Anmeldung der vorhandene `FRISS_API_KEY` angezeigt. **Kopieren** übernimmt ihn für den Authorization-Header `Bearer <Schlüssel>` im Kurzbefehl. Falls die Zwischenablage im HTTP-Browser nicht verfügbar ist, wird das Feld zum manuellen Kopieren ausgewählt. **Ausblenden**, Seitenwechsel und Abmelden leeren das Feld wieder. Der Schlüssel wird erst auf ausdrücklichen Klick geladen und nicht im Browser-Speicher abgelegt. Fehlt die Serverkonfiguration, zeigt die Oberfläche dies an; es wird kein neuer Schlüssel erzeugt.
+
+API: authentifiziertes `POST /auth/api-key`, Antwort `{configured, api_key}` mit `Cache-Control: no-store`. Normale Passwortanmeldung funktioniert weiterhin unabhängig von der Nutzung des Schlüssels in Kurzbefehlen.

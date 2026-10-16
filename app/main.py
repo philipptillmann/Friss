@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.26.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.26.1', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -512,6 +512,12 @@ async def password_login(body: Login, request: Request, response: Response):
     response.set_cookie(login_auth.COOKIE, token, max_age=login_auth.LIFETIME, httponly=True, secure=login_auth.SECURE, samesite='strict', path='/')
     response.headers['Cache-Control'] = 'no-store'
     return {'authenticated': True}
+
+@app.post('/auth/api-key',dependencies=[Depends(auth)])
+async def reveal_api_key(response: Response):
+    response.headers['Cache-Control']='no-store'
+    response.headers['Pragma']='no-cache'
+    return {'configured':bool(KEY),'api_key':KEY or None}
 
 @app.post('/auth/logout')
 async def password_logout(request: Request, response: Response):

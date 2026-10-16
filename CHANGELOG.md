@@ -1,3 +1,8 @@
+## 1.26.1 — API-Schlüssel in Einstellungen
+
+- Vorhandenen API-Schlüssel nach Anmeldung auf ausdrücklichen Klick anzeigen und für iPhone-Kurzbefehle kopieren.
+- Ausblenden / Seitenwechsel / Abmelden leeren den Schlüssel; keine Browser-Speicherung und keine ungeschützte Ausgabe.
+
 ## 1.26.0 — Trinkdauer im BAC-Verlauf
 
 - Optionalen Zeitpunkt des letzten Schlucks bei manuellen Getränken, Rezeptverzehr und in Eintragsdetails erfassen.
