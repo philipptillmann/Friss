@@ -333,3 +333,21 @@ Die Duplizierung bucht keine Mahlzeit und keine Health-Werte. Wiederholen nach u
 ### Rezeptzutaten bearbeiten
 
 Auf der Rezeptseite die gewünschte Zutatenzeile anklicken. Die Eingabemaske öffnet sich mit dem bereits gewählten Lebensmittel, der Menge und dem Zeitpunkt. Menge anpassen und **Speichern** drücken: die vorhandene Zutat wird geändert, keine zusätzliche angelegt. Bei eigenen Zutaten und ChatGPT-Importen bleibt der gespeicherte Nährwertstand erhalten. Das Rezept wird neu berechnet; bereits gebuchte Portionen behalten ihre damaligen Nährwerte. **Abbrechen** verwirft die Bearbeitung.
+
+
+## Alle Nährstoffe in der Statistik (1.23.0)
+
+Die Statistik-Auswahl enthält alle unterstützten Nährstoffe einschließlich Vitaminen, Mineralstoffen, Lebensmittelwasser sowie getrunkenem Wasser, Koffein und Alkohol. Auswahl ändern, um Balkendiagramm, Durchschnitt, Summe und Tageswerttabelle für diesen Wert zu sehen. Vorhandene Werte mit kompatiblen Einheiten werden umgerechnet; unbekannte Werte bleiben Lücken und unvollständige Summen gekennzeichnet.
+
+Für Kalorien, Protein, Kohlenhydrate und Fett wird das aktuell gespeicherte Tagesziel als beschriftete gestrichelte Linie dargestellt. Die Skala berücksichtigt das Ziel auch bei geringeren Tageswerten. Es handelt sich um das aktuelle Ziel aus den Einstellungen, nicht um historische Ziele.
+
+
+## Nährwertetikett fotografieren (1.24.0)
+
+Auf **Eigene Zutaten** die Schaltfläche **Nährwertetikett fotografieren** verwenden. Das iPhone öffnet die Kamera / Bildauswahl. Eine scharfe, gerade Aufnahme der Nährwerttabelle erstellen, möglichst nur mit der **100-g-Spalte**. Das Foto wird auf deinem Friss-Server mit Tesseract (Deutsch / Englisch) verarbeitet. Es werden keine Bilder an einen KI-Anbieter geschickt und kein API-Schlüssel benötigt.
+
+Die Vorschläge erscheinen in der Zutatenmaske. Den Lebensmittelnamen selbst eingeben, **alle Werte und Einheiten prüfen** und anschließend **Speichern** drücken. Der erkannte Text kann aufgeklappt werden und bleibt in den Notizen erhalten. Die Foto-Datei wird nur zur Erkennung verarbeitet und nicht gespeichert. Beim Scannen wird noch keine Zutat und keine Mahlzeit angelegt.
+
+Die erste Version übernimmt eindeutig erkannte Werte **pro 100 g**, inklusive der unterstützten Etikett-Nährstoffe. Sie rechnet kJ bei fehlenden kcal in kcal und Salz in Natrium um (Salz / 2,5). Unbekannte, weniger-als-Angaben und mehrdeutige Spalten bleiben leer. **100 ml**, Portionsangaben, US Nutrition Facts und nicht lesbare Bezugsgrößen erfordern manuelle Umrechnung / Eingabe und werden nicht automatisch übernommen. Kohlenhydrate werden als europäische Angaben ohne weiteren Ballaststoffabzug übernommen.
+
+`./update.sh` baut das Docker-Image einschließlich Tesseract und der deutschen / englischen Sprachdateien neu. OCR-Endpunkt: authentifiziertes `POST /manual-ingredients/scan-label` mit Bildbytes, bis 10 MiB und 16 Megapixel. Verarbeitung mit Zeitlimit; JPEG, PNG und WebP werden unterstützt. Die iPhone-Oberfläche konvertiert das Foto vor dem Upload.

@@ -74,7 +74,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.22.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.24.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -701,3 +701,6 @@ fooddata_import.install(app,auth)
 
 from . import json_import
 json_import.install(app,db,auth,Entry,process,lambda:DATA,normalize)
+
+from . import label_ocr
+label_ocr.install(app,auth)

@@ -41,3 +41,21 @@ class StatisticsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['metrics']['energy_kcal']['partial_days'],1)
         self.assertIsNone(result['days'][0]['values']['fat_g'])
         self.assertEqual(result['unresolved'],1)
+
+    async def test_all_nutrients_unit_conversion_and_goals(self):
+        records=[{'type':'item','status':'processed','timestamp':'2026-10-14T12:00:00+02:00','nutrients':{'dietaryVitaminC':{'value':120,'unit':'mg'},'dietaryVitaminB12':{'value':2.5,'unit':'mcg'},'dietaryWater':{'value':80,'unit':'g'},'dietaryCalcium':{'value':10,'unit':None}}}]
+        result=build_statistics(records,date(2026,10,14),date(2026,10,15),ZoneInfo('Europe/Berlin'),goals={'energy_kcal':2000})
+        from app.home import ALL_NUTRIENTS
+        self.assertTrue({'dietary'+n for n in ALL_NUTRIENTS}.issubset({d['key'] for d in result['metric_definitions'].values()}))
+        self.assertAlmostEqual(result['days'][0]['values']['dietaryVitaminC'],120)
+        self.assertAlmostEqual(result['days'][0]['values']['dietaryVitaminB12'],2.5)
+        self.assertEqual(result['days'][0]['values']['dietaryWater'],80)
+        self.assertIsNone(result['days'][0]['values']['dietaryCalcium'])
+        self.assertTrue(result['days'][0]['partial']['dietaryCalcium'])
+        self.assertIsNone(result['days'][1]['values']['dietaryVitaminC'])
+        self.assertEqual(result['metrics']['dietaryVitaminC']['average'],120)
+        self.assertEqual(result['goals']['energy_kcal'],2000)
+        settings=(await self.client.get('/settings')).json();settings['goals']={'energy_kcal':2200,'protein_g':100}
+        self.assertEqual((await self.client.put('/settings',json=settings)).status_code,200)
+        response=await self.client.get('/statistics',params={'start':'2026-10-14','end':'2026-10-15'})
+        self.assertEqual(response.json()['goals']['energy_kcal'],2200)

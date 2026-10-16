@@ -1,3 +1,15 @@
+## 1.24.0 — Nährwertetiketten lokal scannen
+
+- Unter Eigene Zutaten ein Etikett fotografieren und erkannte Nährwerte pro 100 g vor dem Speichern prüfen.
+- Tesseract mit Deutsch / Englisch im Docker-Image, ohne KI-API oder Gebühren.
+- Erkannter Text bleibt in den Notizen, unklare Angaben werden nicht als Null übernommen; Salz wird in Natrium umgerechnet.
+
+## 1.23.0 — Statistik für alle Nährstoffe
+
+- Alle unterstützten Nährstoffe im Statistikdiagramm, in Summen / Durchschnitten und der Tageswerttabelle auswählbar.
+- Vorhandene Tagesziele als beschriftete Linie mit passender Diagrammskala anzeigen.
+- Kompatible Masseinheiten umrechnen, unbekannte / ungeprüfte Werte weiterhin kennzeichnen.
+
 ## 1.22.1 — Rezeptzutaten bearbeiten
 
 - Zutatenzeilen im Rezept anklickbar machen: gespeicherte Lebensmittel, Mengen und Zeitpunkte direkt in der Eingabemaske bearbeiten.
