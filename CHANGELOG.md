@@ -1,3 +1,9 @@
+## 1.28.1 — Einheitliche Schnellwahl und Home-Symbole
+
+- Home-Such- und Barcode-Symbole mittig ausrichten, dauerhaft dunkelgrün mit weißen Piktogrammen darstellen.
+- Home und Getränke verwenden dasselbe Vierer-Raster mit randlosen quadratischen Bildkacheln.
+- Getränke-Link „Schnellwahl anpassen“ und Überschrift an Home angleichen; Einrichtungshinweis nur bei leerer Schnellwahl zeigen.
+
 ## 1.28.0 — Gemeinsame Suche und Home-Verknüpfungen
 
 - BLS, Open Food Facts, eigene Zutaten sowie Lebensmittel- und Getränkerezepte in einer Suchliste mit farbigen Quellen und Favoritensternen.
