@@ -399,3 +399,13 @@ API: `finished_at` ist ein optionaler Zeitpunkt mit Zeitzone auf `POST /entries`
 Unter **Einstellungen → API für Kurzbefehle → API-Schlüssel anzeigen** wird nach Anmeldung der vorhandene `FRISS_API_KEY` angezeigt. **Kopieren** übernimmt ihn für den Authorization-Header `Bearer <Schlüssel>` im Kurzbefehl. Falls die Zwischenablage im HTTP-Browser nicht verfügbar ist, wird das Feld zum manuellen Kopieren ausgewählt. **Ausblenden**, Seitenwechsel und Abmelden leeren das Feld wieder. Der Schlüssel wird erst auf ausdrücklichen Klick geladen und nicht im Browser-Speicher abgelegt. Fehlt die Serverkonfiguration, zeigt die Oberfläche dies an; es wird kein neuer Schlüssel erzeugt.
 
 API: authentifiziertes `POST /auth/api-key`, Antwort `{configured, api_key}` mit `Cache-Control: no-store`. Normale Passwortanmeldung funktioniert weiterhin unabhängig von der Nutzung des Schlüssels in Kurzbefehlen.
+
+
+
+## Produkte in Open Food Facts suchen (1.27.0)
+
+Bei **Mahlzeiten → Eintrag hinzufügen** unter Erfassung **Open Food Facts: Produkte suchen** auswählen. Einen Produktnamen (mindestens zwei Zeichen) eingeben, Treffer anhand Name / Marke / Packungsgröße auswählen, die konsumierte Menge in Gramm eingeben und speichern. Dieselbe Auswahl steht bei Zutaten von Lebensmittel- und Getränkerezepten zur Verfügung.
+
+Die Nährwerte werden beim Speichern anhand des Barcodes von Open Food Facts geladen. Fehlende Mengen bleiben nachbearbeitbar; fehlende Produktnährwerte bleiben unbekannt beziehungsweise folgen deiner Nullwert-Einstellung. Milliliter werden nicht ohne Dichte in Gramm umgerechnet. Die Suche benötigt Internet; kein Open-Food-Facts-Konto oder API-Schlüssel ist nötig. Suchabfragen werden nach einer kurzen Schreibpause abgeschickt, auf dem Server fünf Minuten zwischengespeichert und auf acht externe Suchanfragen pro Minute begrenzt.
+
+API: authentifiziertes `GET /products/search?q=Hafermilch&lang=de&limit=15` liefert Treffer mit `barcode`, `display_name`, `brand` und `package_quantity`. Ausgewählte Produkte werden anschließend mit dem vorhandenen `POST /entries` als `type: barcode` und optional `recipe_id` gespeichert.

@@ -1,3 +1,9 @@
+## 1.27.0 — Open Food Facts Produktsuche
+
+- Produktnamen unter Mahlzeiten, Rezepten und Getränkerezepten in Open Food Facts suchen; Treffer mit Marke und Packungsgröße auswählen.
+- Produkte über ihren Barcode mit der konsumierten Menge buchen und wie bisher nachbearbeiten.
+- Verzögerte Suchabfrage, kurze Zwischenspeicherung und Anfragelimit; keine API-Schlüssel für Open Food Facts nötig.
+
 ## 1.26.1 — API-Schlüssel in Einstellungen
 
 - Vorhandenen API-Schlüssel nach Anmeldung auf ausdrücklichen Klick anzeigen und für iPhone-Kurzbefehle kopieren.
@@ -212,3 +218,4 @@ Deutsch/englisches Dashboard auf `/`, Tagesfilter, Erfassung und Nachbearbeitung
 ## 1.0.0
 
 Erste Server-API mit SQLite, zweisprachiger BLS-Suche, Open Food Facts, JPEG-Upload, unveränderten Originalen und reserviertem Health-Export. Docker-Deployment und Legacy-Importer. BLS-Export bis zur Einheitenprüfung gesperrt. Kein fertiger iPhone-Kurzbefehl und keine Foto-KI.
+
