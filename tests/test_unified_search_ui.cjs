@@ -1,0 +1,19 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const elements=new Map(),listeners={};
+function element(){return {value:'',hidden:false,textContent:'',children:[],append(...n){this.children.push(...n)},replaceChildren(...n){this.children=n},setAttribute(){},addEventListener(){},focus(){this.focused=true},scrollIntoView(){},click(){if(this.onclick)this.onclick();else this.clicked=true}}}
+const $=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id)};
+let timers=[],calls=[],recipeSubmitted=false;
+const items=[{source:'bls',id:'SUGAR',label:'Sugar',favorite:true,selection_token:'bls'},{source:'manual',id:'own',label:'Own sugar',selection_token:'own'},{source:'off',id:'4001234567890',label:'Brand sugar',selection_token:'off'},{source:'recipe',id:'recipe',label:'Sugar recipe',selection_token:'recipe'}];
+const context=vm.createContext({$,words:{de:{},en:{}},lang:'en',t:k=>k,editing:null,attempt:null,importedBasis:null,selected:null,reusedVia:null,recipePage:()=>false,currentPage:'home',location:{hash:''},document:{createElement:element,documentElement:{}},MutationObserver:class{observe(){}},window:{addEventListener:(n,f)=>listeners[n]=f},clearTimeout(){timers=[]},setTimeout:f=>timers.push(f),api:async(path,opts)=>{calls.push({path,body:opts?.body?JSON.parse(opts.body):null});return path.startsWith('/search?')?{results:items,warnings:[]}:{}},uuid:()=> 'id',kindChange(){},updateMealRecipeInfo(){},message(){},translate(){},useReusable(){},showPage:p=>context.currentPage=p,refresh:async()=>{},reset(){},submitMealRecipe:async()=>{recipeSubmitted=true}});
+vm.runInContext(fs.readFileSync('app/static/unified-search.js','utf8'),context);
+const app=fs.readFileSync('app/static/app.js','utf8');vm.runInContext(app.slice(app.indexOf("$('entryForm').onsubmit="),app.indexOf("$('day').value=localDate")),context);
+(async()=>{
+ $('kind').value='item';$('search').value='sugar';$('search').oninput();await new Promise(r=>setImmediate(r));assert.equal($('results').children.length,4);assert.equal($('results').children[0].children[2].textContent,'★');
+ $('results').children[1].click();assert.equal(context.selected.source,'manual');assert.equal(calls.find(c=>c.path==='/search/selections').body.query,'sugar');
+ $('amount').value='50';$('time').value='2026-10-17T12:00:00';await $('entryForm').onsubmit({preventDefault(){}});let save=calls.find(c=>c.path==='/entries');assert.equal(save.body.type,'manual');assert.equal(save.body.manual_id,'own');
+ context.attempt=null;$('search').oninput();await new Promise(r=>setImmediate(r));$('results').children[2].click();await $('entryForm').onsubmit({preventDefault(){}});save=calls.filter(c=>c.path==='/entries').at(-1);assert.equal(save.body.type,'barcode');assert.equal(save.body.barcode,'4001234567890');
+ context.attempt=null;$('search').oninput();await new Promise(r=>setImmediate(r));$('results').children[3].click();await $('entryForm').onsubmit({preventDefault(){}});assert.equal(recipeSubmitted,true);assert.equal($('mealRecipe').value,'recipe');
+ context.attempt=null;context.editing=null;$('homeSearch').click();assert.equal(context.currentPage,'meals');assert.equal($('search').focused,true);$('homeBarcode').click();assert.equal($('kind').value,'barcode');assert.equal($('barcodeButton').clicked,true);
+ let finishRemote;context.api=async path=>path.includes('remote=true')?new Promise(resolve=>finishRemote=resolve):{results:items,warnings:[]};$('kind').value='item';$('search').value='late';$('search').oninput();await new Promise(r=>setImmediate(r));const late=timers[0]();listeners['friss-page']({detail:'home'});finishRemote({results:items,warnings:[]});await late;assert.equal($('results').children.length,0,'late remote results must not appear after navigation');
+ console.log('Unified search UI: source badges, favorites, learned query, correct save types and Home actions passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

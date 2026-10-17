@@ -409,3 +409,16 @@ Bei **Mahlzeiten → Eintrag hinzufügen** unter Erfassung **Open Food Facts: Pr
 Die Nährwerte werden beim Speichern anhand des Barcodes von Open Food Facts geladen. Fehlende Mengen bleiben nachbearbeitbar; fehlende Produktnährwerte bleiben unbekannt beziehungsweise folgen deiner Nullwert-Einstellung. Milliliter werden nicht ohne Dichte in Gramm umgerechnet. Die Suche benötigt Internet; kein Open-Food-Facts-Konto oder API-Schlüssel ist nötig. Suchabfragen werden nach einer kurzen Schreibpause abgeschickt, auf dem Server fünf Minuten zwischengespeichert und auf acht externe Suchanfragen pro Minute begrenzt.
 
 API: authentifiziertes `GET /products/search?q=Hafermilch&lang=de&limit=15` liefert Treffer mit `barcode`, `display_name`, `brand` und `package_quantity`. Ausgewählte Produkte werden anschließend mit dem vorhandenen `POST /entries` als `type: barcode` und optional `recipe_id` gespeichert.
+
+
+## Gemeinsame Lebensmittelsuche (1.28.0)
+
+Unter Mahlzeiten **Lebensmittel und Rezepte suchen** wählen und direkt tippen. Eine Liste zeigt BLS (grün), Open Food Facts (blau), eigene Zutaten (violett) sowie Lebensmittel- / Getränkerezepte (gelb). Favoriten tragen zusätzlich einen **★**; Quellen sind auch als Text angegeben. Lokale Treffer erscheinen zuerst, Open Food Facts ergänzt die Liste nach einer kurzen Schreibpause. Bei Netzwerk- oder Anfragelimits bleiben lokale Treffer verfügbar.
+
+Nach Auswahl die konsumierte Menge prüfen und speichern. BLS / OFF / eigene Zutaten werden in Gramm erfasst; Rezepte verwenden die vorhandene Portions-, Anteil-, Gramm- oder ml-Eingabe. Beim Erfassen von Rezeptzutaten werden Rezepttreffer ausgeblendet, da verschachtelte Rezepte nicht unterstützt werden. Bei der Nachbearbeitung einer bestehenden BLS-Zuordnung bleibt die Auswahl auf BLS beschränkt. Barcode, Foto und Textimporte bleiben weitere Erfassungswege; separate Datenquellen-Auswahlen sind für die normale Suche nicht mehr nötig.
+
+Jede Auswahl wird an den eingegebenen Suchbegriff und die Sprache gebunden gespeichert. Häufig gewählte Treffer steigen für genau diese Suche nach oben. Bisherige BLS-Suchpräferenzen bleiben erhalten. Schon einmal gewählte OFF-Produkte erscheinen bei derselben Suche auch sofort aus dem lokalen Verlauf; beim Buchen werden die Produktdaten weiterhin über den Barcode abgerufen. Nur eine vom Server für diese Suche ausgegebene Auswahl kann als Präferenz gespeichert werden. Favoritenmarkierungen stammen aus der bestehenden Favoritenverwaltung; das Löschen einer Favoritenmarkierung entfernt keine Tagebucheinträge.
+
+Oben rechts auf **Home** öffnet das Barcode-Symbol direkt die bestehende Foto-Barcode-Erfassung. Das Lupensymbol wechselt zu Mahlzeiten und fokussiert das gemeinsame Suchfeld. Eine noch unklar übertragene Eingabe muss vorher erneut gespeichert oder abgebrochen werden.
+
+API: `GET /search?q=Zucker&lang=de&remote=true&include_recipes=true` liefert `results` und `warnings`. Mit `remote=false` werden nur lokale Daten und bereits gelernte OFF-Treffer verwendet. `POST /search/selections` erwartet UUID `id`, `query`, `lang` und den zurückgegebenen `selection_token` (eine Stunde gültig). Die älteren BLS- und OFF-Endpunkte bleiben für vorhandene Kurzbefehle / Integrationen erhalten.

@@ -1,3 +1,10 @@
+## 1.28.0 — Gemeinsame Suche und Home-Verknüpfungen
+
+- BLS, Open Food Facts, eigene Zutaten sowie Lebensmittel- und Getränkerezepte in einer Suchliste mit farbigen Quellen und Favoritensternen.
+- Auswahl pro Suchbegriff und Sprache lernen, einschließlich eigener Daten und OFF-Produkte; bisherige BLS-Präferenzen erhalten.
+- Lokale Treffer sofort, externe Produkte nach Schreibpause; lokale Suche bleibt bei OFF-Ausfall nutzbar.
+- Home: kleine Barcode- und Suchsymbole oben rechts für Kamera beziehungsweise Mahlzeitensuche.
+
 ## 1.27.0 — Open Food Facts Produktsuche
 
 - Produktnamen unter Mahlzeiten, Rezepten und Getränkerezepten in Open Food Facts suchen; Treffer mit Marke und Packungsgröße auswählen.
