@@ -1,3 +1,9 @@
+## 1.28.2 — Navigation und Überschriften
+
+- Menüfolge: Home, Mahlzeiten, Getränke, Rezepte, Favoriten, Manuell, Statistik, Export, Einstellungen.
+- Menü und Seite Eigene Zutaten in Manuell umbenennen; Health-Export heißt im Menü Export.
+- Getränkeüberschrift verkürzen und die Rezeptverwaltung als „Rezepte auswählen / anlegen“ beschriften.
+
 ## 1.28.1 — Einheitliche Schnellwahl und Home-Symbole
 
 - Home-Such- und Barcode-Symbole mittig ausrichten, dauerhaft dunkelgrün mit weißen Piktogrammen darstellen.
