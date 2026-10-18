@@ -1,3 +1,10 @@
+## 1.32.0 — ZIP-/JSON-Datensicherung und Wiederherstellung
+
+- Einstellungen: ZIP herunterladen, Sicherung prüfen und nach Bestätigung vollständig wiederherstellen.
+- Versionierter JSON-Export aller Fachdaten inklusive effektiver BLS-Daten, Bildern, Originaldateien und Health-Exportstatus; Zugangsdaten und Sitzungen ausgeschlossen.
+- Vor Wiederherstellung automatisches Sicherungs-ZIP unter `data/recovery`; Datenbanktransaktion, Dateitausch mit Fehler-Rollback, Größen-/Pfad-/Prüfsummenprüfung und temporärer Wartungsmodus.
+- Anleitung zu Wiederherstellung auf anderem Server und Health-Status nach älteren Sicherungen ergänzt.
+
 ## 1.31.0 — Schnellwahl, Mengenbearbeitung und Produktsuche
 
 - #74: Schnellwahl in Einstellungen mit „Nach vorne“ / „Nach hinten“ sortieren; Reihenfolge wird sofort gespeichert und für Getränke übernommen.

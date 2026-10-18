@@ -36,6 +36,8 @@ def normalize(s):
 
 @asynccontextmanager
 async def lifespan(app):
+    from .backups import Gate
+    app.state.backup_gate=Gate()
     if len(KEY) < 32 and not login_auth.PASSWORD_HASH:
         raise RuntimeError('FRISS_API_KEY must contain at least 32 characters')
     DATA.mkdir(parents=True, exist_ok=True)
@@ -75,7 +77,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.31.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.32.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -850,3 +852,6 @@ off_search.install(app,auth)
 
 from . import unified_search
 unified_search.install(app,db,auth,normalize)
+
+from . import backups
+backups.install(app,db,auth,lambda:DATA)
