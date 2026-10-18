@@ -436,3 +436,7 @@ Entwicklungsanfragen werden ab jetzt als GitHub-Issues erfasst und nach Veröffe
 In der Mahlzeitenerfassung zeigt **Rezept essen** ausschließlich Lebensmittelrezepte, **Getränk trinken** ausschließlich gespeicherte Getränke. Ein Getränk aus der Getränkeverwaltung öffnet direkt diese getrennte Auswahl. Auch bei Auswahl über die gemeinsame Suche bleibt die Kategorie erhalten: Rezept-Tags sind gelb, Getränke-Tags rosa und jeweils textlich beschriftet. Alte Definitionen ohne Kategorie gelten weiter als Lebensmittelrezepte; ein vorhandenes Getränk gegebenenfalls über **Als Getränk verschieben** migrieren.
 
 „OFF“ bedeutet **Open Food Facts**. Die veraltete separate Suchoption wurde entfernt; Produkte dieser Datenbank werden über die gemeinsame Suche gefunden und mit dem ausgeschriebenen Quellenlabel angezeigt.
+
+### AI meals from iPhone Shortcuts (v1.30.0)
+
+Use the one-request [`POST /json-import` workflow](docs/AI_SHORTCUT.md): the Shortcut supplies time and original text, the model returns whole-portion nutrient totals, Friss generates IDs and saves the meal. Includes a [German model prompt](docs/AI_PROMPT_DE.txt) and [example request](docs/examples/ai-meal.json). Existing browser/legacy preview and commit APIs remain supported.

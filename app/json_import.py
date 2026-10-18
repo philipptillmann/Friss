@@ -34,9 +34,10 @@ class ImportedNutrient(Nutrient):
 
 class Nutrition(BaseModel):
     model_config=ConfigDict(extra='forbid')
-    basis:Literal['100g','100ml']
+    basis:Literal['100g','100ml','total']
     nutrients:dict[str,ImportedNutrient|None]=Field(min_length=1)
     estimated:bool=True
+    reference_quantity:Quantity|None=None
     @model_validator(mode='after')
     def valid(self):
         for key,n in self.nutrients.items():
@@ -68,6 +69,7 @@ class Item(BaseModel):
 class Meal(BaseModel):
     model_config=ConfigDict(extra='forbid')
     format:Literal['friss-meal-v1']=Field(alias='schema')
+    original_message:str=Field(default='',max_length=10000)
     title:str=Field(default='',max_length=300)
     timestamp:datetime|None=None
     items:list[Item]=Field(min_length=1,max_length=100)
@@ -112,6 +114,32 @@ def parse(raw):
             errors=[{'field':'.'.join(str(x) for x in e['loc']),'message':e['msg']} for e in exc.errors()[:10]]
             raise HTTPException(422,{'message':'Use the friss-meal-v1 format','errors':errors})
         raise HTTPException(422,'Invalid JSON: '+str(exc)[:250])
+
+
+class AIMeal(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    title:str=Field(min_length=1,max_length=200)
+    quantity:Quantity|None=None
+    notes:str=Field(default='',max_length=2000)
+    estimated:bool=True
+    nutrients:dict[str,ImportedNutrient|None]
+
+    @model_validator(mode='after')
+    def valid(self):
+        if not self.title.strip():raise ValueError('Title must not be blank')
+        Nutrition(basis='total',nutrients=self.nutrients,estimated=self.estimated)
+        return self
+
+class AIRequest(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    timestamp:datetime
+    original_message:str=Field(default='',max_length=10000)
+    ai:AIMeal|str
+
+    @model_validator(mode='after')
+    def valid(self):
+        if self.timestamp.utcoffset() is None:raise ValueError('Timestamp needs timezone offset')
+        return self
 
 
 def matches(db,normalize,item,lang):
@@ -178,7 +206,7 @@ def install(app,db,auth,Entry,process,data_dir,normalize):
                          description=item.name,bls_code=item.bls_code,manual_id=item.manual_id,barcode=item.barcode,
                          recipe_id=body.recipe_id,capture_method='json_import').model_dump(mode='json')
             entry={**native,'status':'unprocessed','health_status':'pending','revision':1,
-                   'import_context':{'batch_id':str(body.id),'index':index,'title':meal.title,'original_name':meal.items[index].name,'notes':item.notes}}
+                   'import_context':{'batch_id':str(body.id),'index':index,'title':meal.title,'original_name':meal.items[index].name,'notes':item.notes,'original_message':meal.original_message}}
             if item.manual_id:
                 with db() as c:
                     row=c.execute('SELECT payload FROM manual_ingredients WHERE id=?',(str(item.manual_id),)).fetchone()
@@ -228,3 +256,35 @@ def install(app,db,auth,Entry,process,data_dir,normalize):
         except BaseException:
             with db() as c:c.execute('UPDATE json_import_batches SET lease=0 WHERE id=? AND token=?',(str(body.id),token))
             raise
+
+
+    @app.post('/json-import',status_code=201,dependencies=[Depends(auth)])
+    async def import_ai(body:AIRequest):
+        # No model-generated IDs, timestamps, duplicated items or per-100-g maths.
+        if len(body.model_dump_json().encode())>MAX_BYTES:raise HTTPException(413,'JSON import exceeds 256 KiB')
+        ai=body.ai
+        if isinstance(ai,str):
+            text=ai.strip()
+            fenced=re.fullmatch(r'```(?:json)?\s*([\s\S]*?)\s*```',text,re.I)
+            if fenced:text=fenced.group(1)
+            def pairs(items):
+                out={}
+                for key,value in items:
+                    if key in out:raise ValueError('Duplicate JSON key: '+key)
+                    out[key]=value
+                return out
+            try:
+                ai=AIMeal.model_validate(json.loads(text,object_pairs_hook=pairs))
+            except (ValueError,RecursionError) as exc:
+                if isinstance(exc,json.JSONDecodeError):
+                    raise HTTPException(422,{'message':'Invalid AI JSON','line':exc.lineno,'column':exc.colno,'hint':exc.msg})
+                raise HTTPException(422,'Invalid AI meal: '+str(exc)[:1000])
+        digest=hashlib.sha256(json.dumps(body.model_dump(mode='json'),sort_keys=True).encode()).hexdigest()
+        batch=uuid5(NAMESPACE_URL,'friss-ai-request:'+digest)
+        nutrition=Nutrition(basis='total',estimated=ai.estimated,nutrients=ai.nutrients,reference_quantity=ai.quantity)
+        item=Item(name=ai.title,quantity=ai.quantity,notes=ai.notes,nutrition=nutrition)
+        meal=Meal(schema='friss-meal-v1',title=ai.title,original_message=body.original_message,items=[item])
+        # Preserve the unmodified AI string and Shortcut metadata alongside native originals.
+        immutable(data_dir()/'originals'/f'request-{batch}.json',json.dumps(body.model_dump(mode='json'),sort_keys=True,indent=2))
+        result=await commit(Commit(id=batch,raw=json.dumps(meal.model_dump(mode='json',by_alias=True),sort_keys=True),timestamp=body.timestamp,items=[item]))
+        return {**result,'title':ai.title,'timestamp':body.timestamp.isoformat(),'nutrients':{k:n.model_dump() for k,n in ai.nutrients.items() if n is not None}}

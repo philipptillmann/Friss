@@ -2,6 +2,8 @@
 
 Friss kann Ergebnisse aus der ChatGPT-App oder einem anderen Programm einlesen. Es gibt keine KI-Verbindung von Friss und keinen API-Schlüssel für diesen Import. Lebensmittel, Mengen und optional Nährwerte stammen aus deinem JSON. In der Vorschau kannst du die ChatGPT-Nährwerte übernehmen oder stattdessen einen Datenbanktreffer wählen.
 
+Für den direkten iPhone-Kurzbefehl gibt es ab v1.30.0 außerdem den [Ein-Schritt-Import mit Portionssummen](AI_SHORTCUT.md). Dieser verwendet ein eigenes, kleineres Format; die folgenden Angaben beschreiben weiterhin den Browser-Import.
+
 ## So funktioniert es
 
 1. Unter **Mahlzeiten → Eintrag hinzufügen → JSON aus ChatGPT importieren** die **ChatGPT-Vorlage kopieren**. Auf der Rezeptseite ist derselbe Import für Zutaten verfügbar.
@@ -95,3 +97,4 @@ Jede Position kann optional `nutrition` enthalten. In der Vorschau werden Basis,
 Kohlenhydrate müssen den europäischen verfügbaren Kohlenhydraten entsprechen, also ohne Ballaststoffe. Die Vorlage fordert das ausdrücklich an. Friss zieht von diesen importierten Werten nicht nochmals Ballaststoffe ab.
 
 `estimated` ist standardmäßig `true`: die Detailseite kennzeichnet solche Werte als externe KI-Schätzung. `false` ist für abgelesene Angaben vorgesehen. Friss prüft Struktur und Einheiten, nicht die tatsächliche Zusammensetzung eines Fotos. Die gespeicherten Nährwerte behalten ihre Importquelle und werden bei Rezeptverzehr als Snapshot übernommen; der bestehende Health-Export kann sie übertragen.
+

@@ -1,3 +1,10 @@
+## 1.30.0 — KI-Mahlzeiten mit einem API-Aufruf speichern
+
+- `POST /json-import` übernimmt KI-Text oder Objekt mit Nährstoffsummen für die verzehrte Portion; Zeitpunkt und Originalnachricht stammen aus dem Kurzbefehl.
+- Server erzeugt IDs und verhindert doppelte Einträge bei identischen Wiederholungen. Originale, Schätzkennzeichnung und Portionsmenge bleiben erhalten.
+- Kein UUID-, Vorschau- oder Commit-Schritt im Kurzbefehl nötig. Bestehender Browser-/Legacy-Importer bleibt verfügbar.
+- Dokumentation, deutsche Modellvorlage und geprüftes Anfragebeispiel ergänzt.
+
 ## 1.29.1 — Rezept- und Getränkeauswahl trennen
 
 - Getrennte Erfassungswege „Rezept essen“ und „Getränk trinken“ zeigen ausschließlich die passende Kategorie.

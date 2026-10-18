@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-10-18T20:00:00+02:00",
+  "original_message": "Ich habe 500 g Spaghetti Bolognese gegessen.",
+  "ai": {
+    "title": "Spaghetti Bolognese",
+    "quantity": {"value": 500, "unit": "g"},
+    "estimated": true,
+    "notes": "Nährwerte für die ganze 500-g-Portion geschätzt; Rezeptur unbekannt.",
+    "nutrients": {
+      "dietaryEnergyConsumed": {"value": 775, "unit": "kcal"},
+      "dietaryCarbohydrates": {"value": 97.5, "unit": "g"},
+      "dietaryProtein": {"value": 37.5, "unit": "g"},
+      "dietaryFatTotal": {"value": 25, "unit": "g"},
+      "dietaryFiber": {"value": 10, "unit": "g"},
+      "dietarySodium": {"value": 1450, "unit": "mg"}
+    }
+  }
+}

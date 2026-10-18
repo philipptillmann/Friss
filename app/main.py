@@ -75,7 +75,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.29.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.30.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -141,6 +141,17 @@ async def process(e, reuse_off=False):
         e['food']={'name_de':snapshot['name'],'name_en':snapshot['name']}
         e['source']={'provider':'ChatGPT import','basis':snapshot['basis'],'estimated':snapshot['estimated']}
         if snapshot['estimated']:e['warnings'].append('Nutrient values estimated by external AI; review before export')
+        if snapshot['basis']=='total':
+            reference=snapshot.get('reference_quantity')
+            factor=1
+            if reference and q:
+                if q['unit']!=reference['unit']:
+                    e['reason']='Quantity unit must match original AI portion'
+                    return
+                factor=q['value']/reference['value']
+            e['nutrients']={key:{'value':n['value']*factor,'unit':n['unit']} for key,n in snapshot['nutrients'].items() if n is not None}
+            e.update(status='processed',reason=None)
+            return
         unit='g' if snapshot['basis']=='100g' else 'ml'
         if not q or q['unit']!=unit:
             e['reason']='Quantity in '+unit+' required for imported nutrition'
