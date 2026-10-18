@@ -1,3 +1,10 @@
+## 1.31.0 — Schnellwahl, Mengenbearbeitung und Produktsuche
+
+- #74: Schnellwahl in Einstellungen mit „Nach vorne“ / „Nach hinten“ sortieren; Reihenfolge wird sofort gespeichert und für Getränke übernommen.
+- #3: Rezeptzutaten und Tagebucheinträge öffnen dieselbe Detailseite mit Nährwerten und Mengenbearbeitung. Änderungen skalieren gespeicherte Werte und erhalten Rezept-Snapshots, Originale und Zeitpunkte. Bereits exportierte Werte werden als geändert erkennbar; Health bleibt separat zu korrigieren.
+- #1: Letzte bekannte Produktmenge aus Tagebuch und Rezeptzutaten als Vorschlag für BLS, Open Food Facts und eigene Zutaten übernehmen. Explizite Favoritenmengen und bereits ausgefüllte Eingaben bleiben erhalten.
+- #2: Open Food Facts verwendet den funktionierenden Search-a-licious-Suchdienst; bisherige Suche bleibt Ausweichweg. Duplo-Suche live geprüft. Markenlisten korrekt anzeigen.
+
 ## 1.30.0 — KI-Mahlzeiten mit einem API-Aufruf speichern
 
 - `POST /json-import` übernimmt KI-Text oder Objekt mit Nährstoffsummen für die verzehrte Portion; Zeitpunkt und Originalnachricht stammen aus dem Kurzbefehl.

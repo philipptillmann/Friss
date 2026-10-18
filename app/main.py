@@ -75,7 +75,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.30.0', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.31.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -373,6 +373,51 @@ async def edit_entry_time(id: UUID, body: EntryTime):
             e.setdefault('original_timestamp',e['timestamp'])
             e.update(timestamp=body.timestamp.isoformat(),finished_at=finish_text,revision=e.get('revision',1)+1)
             c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
+    return e
+
+class LoggedQuantity(Quantity):
+    unit:Literal['g','ml','portion','fraction']
+    @model_validator(mode='after')
+    def fraction_limit(self):
+        if self.unit=='fraction' and self.value>1:raise ValueError('Fraction must be at most 1')
+        return self
+
+class AmountEdit(BaseModel):
+    quantity:LoggedQuantity
+    revision:int=Field(ge=1)
+
+@app.patch('/entries/{id}/amount',dependencies=[Depends(auth)])
+async def edit_entry_amount(id:UUID,body:AmountEdit):
+    e=load_entry(id);revision=e.get('revision',1)
+    if body.revision!=revision:raise HTTPException(409,'Entry changed; reload before editing')
+    if e['health_status']=='claimed':raise HTTPException(409,'Health export in progress; finish it before editing')
+    old=e.get('quantity');new=body.quantity.model_dump()
+    if old==new:return e
+    if old and old['unit']!=new['unit']:raise HTTPException(422,'Keep the original unit; automatic unit conversion is not supported')
+    if not old and new['unit'] not in ('g','ml'):raise HTTPException(422,'Food amount must use g or ml')
+    e['quantity']=new
+    if e['status']=='processed' and old:
+        factor=new['value']/old['value']
+        e['nutrients']={key:{**n,'value':n['value']*factor} if isinstance(n.get('value'),(int,float)) else n for key,n in e.get('nutrients',{}).items()}
+        for key in ('ethanol_g','drinking_water_ml'):
+            if e.get(key) is not None:e[key]*=factor
+        # Caffeine-only drink capture stores its total separately from nutrients.
+        if e.get('caffeine_mg') is not None:e['caffeine_mg']*=factor
+    elif e.get('imported_nutrition',{}).get('basis')=='total':
+        e['imported_nutrition']['reference_quantity']=new
+    else:
+        await process(e,reuse_off=True)
+        if e['status']!='processed':raise HTTPException(422,'Resolve the food first: '+str(e.get('reason') or 'Unknown food'))
+    amounts=[n.get('value') for n in e.get('nutrients',{}).values()]+[e.get(k) for k in ('ethanol_g','drinking_water_ml','caffeine_mg')]
+    if any(v is not None and isinstance(v,(int,float)) and not math.isfinite(v) for v in amounts):raise HTTPException(422,'Amount is too large to calculate')
+    e['revision']=revision+1
+    with db() as c:
+        c.execute('BEGIN IMMEDIATE')
+        current=c.execute('SELECT payload FROM entries WHERE id=?',(str(id),)).fetchone()
+        if not current:raise HTTPException(404,'Entry not found')
+        current=json.loads(current['payload'])
+        if current.get('revision',1)!=revision or current['health_status']!=e['health_status']:raise HTTPException(409,'Entry changed; reload before editing')
+        c.execute('UPDATE entries SET payload=? WHERE id=?',(json.dumps(e),str(id)))
     return e
 
 class Resolution(BaseModel):

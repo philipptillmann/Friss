@@ -50,3 +50,11 @@ Object.assign(words.en,{unifiedSearch:'Search foods and recipes',sourceBLS:'BLS'
  new MutationObserver(()=>{invalidate();$('homeSearch').setAttribute('aria-label',t('searchHome'));$('homeBarcode').setAttribute('aria-label',t('scanBarcode'));}).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
  translate();
 })();
+
+// Direct manual / barcode capture gets the same last-used amount as shared search.
+async function suggestLastAmount(source,id,stillSelected){
+ if(editing||!id||$('amount').value)return;
+ try{const data=await api('/food-amounts?source='+source+'&id='+encodeURIComponent(id));if(!editing&&!attempt&&!$('dashboard').hidden&&stillSelected()&&!$('amount').value&&data.quantity?.unit==='g')$('amount').value=data.quantity.value;}catch(e){/* A suggestion must never prevent capture. */}
+}
+$('manualCaptureSelect').addEventListener('change',()=>{const id=$('manualCaptureSelect').value;suggestLastAmount('manual',id,()=>$('kind').value==='manual'&&$('manualCaptureSelect').value===id);});
+$('description').addEventListener('input',()=>{const code=$('description').value.trim();if($('kind').value==='barcode'&&/^\d{8,14}$/.test(code))suggestLastAmount('off',code,()=>$('kind').value==='barcode'&&$('description').value.trim()===code);});

@@ -1,9 +1,9 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const elements=new Map(),listeners={};
-const $=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,disabled:false,children:[],append(...n){this.children.push(...n)},replaceChildren(...n){this.children=n},reset(){}});return elements.get(id)};
+const $=id=>{if(!elements.has(id))elements.set(id,{value:'',hidden:false,disabled:false,children:[],append(...n){this.children.push(...n)},replaceChildren(...n){this.children=n},reset(){},removeAttribute(){}});return elements.get(id)};
 let calls=[],fail=true;
 const entry={id:'source',type:'drink',drink:'water',timestamp:'2026-10-14T10:00:00Z',quantity:{value:250,unit:'ml'},health_status:'synced',status:'processed',contributions:{}};
-const context=vm.createContext({$,words:{de:{},en:{}},lang:'en',t:x=>x,document:{createElement:()=>({}),documentElement:{}},window:{addEventListener:(n,f)=>listeners[n]=f},location:{hash:'#entry/source'},currentPage:'entry',MutationObserver:class{observe(){}},localDate:d=>d.toISOString().slice(0,10),formatHome:String,tableRow(){},nutrientLabel:x=>x,translate(){},message(){},uuid:()=> 'copy-id',refresh:async()=>{},api:async(path,options)=>{if(!options)return entry;calls.push(JSON.parse(options.body));if(fail){fail=false;throw Error('Lost response')}return {id:'copy-id'};}});
+const context=vm.createContext({$,words:{de:{},en:{}},lang:'en',t:x=>x,document:{createElement:()=>({}),documentElement:{}},window:{addEventListener:(n,f)=>listeners[n]=f},location:{hash:'#entry/source'},currentPage:'entry',recipeRows:[],MutationObserver:class{observe(){}},localDate:d=>d.toISOString().slice(0,10),formatHome:String,tableRow(){},nutrientLabel:x=>x,translate(){},message(){},uuid:()=> 'copy-id',refresh:async()=>{},api:async(path,options)=>{if(!options)return entry;calls.push(JSON.parse(options.body));if(fail){fail=false;throw Error('Lost response')}return {id:'copy-id'};}});
 vm.runInContext(fs.readFileSync('app/static/entry-details.js','utf8'),context);
 (async()=>{
  await vm.runInContext("loadEntryDetails('source')",context);
@@ -19,3 +19,4 @@ vm.runInContext(fs.readFileSync('app/static/entry-details.js','utf8'),context);
  listeners['friss-logout']();assert.equal($('detailCopyForm').hidden,true);
  console.log('Entry copy UI: target time, duplicate-safe retry and logout passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
+

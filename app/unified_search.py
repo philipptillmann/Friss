@@ -14,10 +14,20 @@ from . import food_search,off_search
 SIGNING_KEY=secrets.token_bytes(32)
 
 def identity(entry):
-    if entry.get('type')=='item':return 'bls',entry.get('bls_code')
+    if entry.get('bls_code') or (entry.get('food') or {}).get('bls_code'):return 'bls',entry.get('bls_code') or entry['food']['bls_code']
     if entry.get('type')=='manual':return 'manual',entry.get('manual_id')
     if entry.get('type')=='barcode':return 'off',entry.get('barcode')
     return None
+
+def last_quantities(db):
+    # Insertion order is when the user last used a product, not its meal date.
+    with db() as c:rows=c.execute('SELECT payload FROM entries ORDER BY rowid DESC').fetchall()
+    result={}
+    for row in rows:
+        e=json.loads(row['payload']);key=identity(e);q=e.get('quantity')
+        if key and key[1] and key not in result and q and q.get('unit')=='g' and isinstance(q.get('value'),(int,float)) and q['value']>0:
+            result[key]=q
+    return result
 
 def sign(query,lang,item):
     payload={'query':query,'lang':lang,'expires':int(time.time())+3600,'item':item}
@@ -40,6 +50,10 @@ class Selection(BaseModel):
     token: str=Field(min_length=1,max_length=20000)
 
 def install(app,db,auth,normalize):
+    @app.get('/food-amounts',dependencies=[Depends(auth)])
+    async def amount(source:Literal['bls','off','manual'],id:str=Query(min_length=1,max_length=100)):
+        return {'quantity':last_quantities(db).get((source,id))}
+
     @app.get('/search',dependencies=[Depends(auth)])
     async def search(q:str=Query(min_length=1,max_length=80),lang:Literal['de','en']='de',remote:bool=True,include_recipes:bool=True):
         query=food_search.term(q,normalize)
@@ -82,6 +96,9 @@ def install(app,db,auth,normalize):
         def rank(item):
             hits,recent=preferences.get((item['source'],item['id']),(0,0));name=food_search.term(item['label'],normalize)
             return (-hits,-recent,name!=query,not name.startswith(query),not item.get('favorite',False),len(name),item['label'],item['source'])
+        amounts=last_quantities(db)
+        for key,item in candidates.items():
+            if not item.get('default_quantity') and key in amounts:item['default_quantity']=amounts[key]
         results=sorted(candidates.values(),key=rank)[:60]
         return {'results':[{**item,'favorite':bool(item.get('favorite')),'selection_token':sign(query,lang,item)} for item in results],'warnings':warnings}
 

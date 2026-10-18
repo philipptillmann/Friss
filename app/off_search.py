@@ -4,22 +4,27 @@ from collections import OrderedDict,deque
 import httpx
 from fastapi import Depends,HTTPException,Query
 
-URL='https://world.openfoodfacts.org/cgi/search.pl'
+URL='https://search.openfoodfacts.org/search'
+LEGACY_URL='https://world.openfoodfacts.org/cgi/search.pl'
 MAX_BYTES=2*1024*1024
 cache=OrderedDict()
 requests=deque()
 
 def products(data,lang):
-    if not isinstance(data,dict) or not isinstance(data.get('products'),list):raise HTTPException(502,'Invalid Open Food Facts search response')
+    if not isinstance(data,dict):raise HTTPException(502,'Invalid Open Food Facts search response')
+    rows=data.get('hits',data.get('products'))
+    if not isinstance(rows,list):raise HTTPException(502,'Invalid Open Food Facts search response')
     found=[];seen=set()
-    for p in data['products']:
+    for p in rows:
         if not isinstance(p,dict):continue
         code=str(p.get('code',''))
         if not code.isascii() or not code.isdigit() or not 8<=len(code)<=14 or code in seen:continue
         name=p.get('product_name_'+lang) or p.get('product_name') or p.get('product_name_en') or code
         if not isinstance(name,str):continue
+        brands=p.get('brands') or ''
+        if isinstance(brands,list):brands=', '.join(str(b) for b in brands)
         seen.add(code)
-        found.append({'barcode':code,'display_name':name[:300],'brand':str(p.get('brands') or '')[:200],'package_quantity':str(p.get('quantity') or '')[:100]})
+        found.append({'barcode':code,'display_name':name[:300],'brand':str(brands)[:200],'package_quantity':str(p.get('quantity') or '')[:100]})
     return found
 
 async def search(q,lang,limit):
@@ -30,18 +35,22 @@ async def search(q,lang,limit):
     while requests and requests[0]<=now-60:requests.popleft()
     if len(requests)>=8:raise HTTPException(429,'Open Food Facts search limit reached. Please wait one minute.',headers={'Retry-After':'60'})
     requests.append(now)
-    params={'search_terms':q,'search_simple':1,'action':'process','json':1,'page_size':limit,'page':1,'lc':lang,'fields':'code,product_name,product_name_de,product_name_en,brands,quantity'}
+    params={'q':q,'page_size':limit,'page':1,'langs':lang}
+    legacy={'search_terms':q,'search_simple':1,'action':'process','json':1,'page_size':limit,'page':1,'lc':lang,'fields':'code,product_name,product_name_de,product_name_en,brands,quantity'}
+    async def fetch(client,url,params):
+        async with client.stream('GET',url,params=params) as response:
+            if response.status_code==429:raise HTTPException(429,'Open Food Facts search is rate limited. Please wait one minute.',headers={'Retry-After':'60'})
+            response.raise_for_status()
+            content=bytearray()
+            async for chunk in response.aiter_bytes():
+                content.extend(chunk)
+                if len(content)>MAX_BYTES:raise HTTPException(502,'Open Food Facts search response is too large')
+            import json
+            return products(json.loads(content),lang)[:limit]
     try:
-        async with httpx.AsyncClient(timeout=15,follow_redirects=False,headers={'User-Agent':'Friss/1.27 (self-hosted; https://github.com/philipptillmann/Friss)','Accept':'application/json'}) as client:
-            async with client.stream('GET',URL,params=params) as response:
-                if response.status_code==429:raise HTTPException(429,'Open Food Facts search is rate limited. Please wait one minute.',headers={'Retry-After':'60'})
-                response.raise_for_status()
-                content=bytearray()
-                async for chunk in response.aiter_bytes():
-                    content.extend(chunk)
-                    if len(content)>MAX_BYTES:raise HTTPException(502,'Open Food Facts search response is too large')
-                import json
-                result=products(json.loads(content),lang)[:limit]
+        async with httpx.AsyncClient(timeout=12,follow_redirects=False,headers={'User-Agent':'Friss/1.31 (self-hosted; https://github.com/philipptillmann/Friss)','Accept':'application/json'}) as client:
+            try:result=await fetch(client,URL,params)
+            except (httpx.HTTPError,ValueError,TypeError):result=await fetch(client,LEGACY_URL,legacy)
     except (httpx.HTTPError,ValueError,TypeError):raise HTTPException(502,'Open Food Facts search is unavailable. Try again later.')
     cache[key]=(time.monotonic()+300,result);cache.move_to_end(key)
     while len(cache)>128:cache.popitem(last=False)

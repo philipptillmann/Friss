@@ -13,9 +13,9 @@ class OFFSearchTests(unittest.IsolatedAsyncioTestCase):
         off_search.cache.clear();off_search.requests.clear();calls=[]
         def handle(request):
             calls.append(request)
-            if request.url.path=='/cgi/search.pl':
-                self.assertEqual(request.url.params['search_terms'],'Hafermilch')
-                return httpx.Response(200,json={'products':[{'code':'4001234567890','product_name':'Oat milk','product_name_de':'Hafermilch','brands':'Test brand','quantity':'1 L'}, {'code':'invalid','product_name':'Ignored'}]})
+            if request.url.host=='search.openfoodfacts.org' and request.url.path=='/search':
+                self.assertEqual(request.url.params['q'],'Hafermilch')
+                return httpx.Response(200,json={'hits':[{'code':'4001234567890','product_name':'Oat milk','product_name_de':'Hafermilch','brands':['Test brand'],'quantity':'1 L'}, {'code':'invalid','product_name':'Ignored'}]})
             self.assertIn('/api/v2/product/4001234567890.json',request.url.path)
             return httpx.Response(200,json={'status':1,'product':{'product_name':'Hafermilch','nutriments':{'energy-kcal_100g':40,'proteins_100g':1}}})
         original=httpx.AsyncClient
@@ -43,3 +43,23 @@ class OFFSearchTests(unittest.IsolatedAsyncioTestCase):
             response=await self.client.get('/products/search',params={'q':'another'})
             self.assertEqual(response.status_code,429);self.assertEqual(response.headers['retry-after'],'60')
         off_search.requests.clear()
+
+    async def test_legacy_fallback_empty_results_and_upstream_rate_limit(self):
+        off_search.cache.clear();off_search.requests.clear();calls=[]
+        def handle(req):
+            calls.append(req.url.host)
+            if req.url.host=='search.openfoodfacts.org':return httpx.Response(503)
+            return httpx.Response(200,json={'products':[{'code':'4008400301020','product_name':'Duplo','brands':'Ferrero'}]})
+        original=httpx.AsyncClient
+        with patch.object(httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(handle),**kw)):
+            r=await self.client.get('/products/search',params={'q':'Duplo'});self.assertEqual(r.status_code,200)
+            self.assertEqual(r.json()[0]['display_name'],'Duplo')
+            self.assertEqual(calls,['search.openfoodfacts.org','world.openfoodfacts.org'])
+        for status,data in [(200,{'hits':[]}),(429,{})]:
+            off_search.cache.clear();off_search.requests.clear();calls.clear()
+            def response(req):
+                calls.append(req.url.host);return httpx.Response(status,json=data)
+            with patch.object(httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(response),**kw)):
+                r=await self.client.get('/products/search',params={'q':'Duplo'})
+                self.assertEqual(r.status_code,status)
+                self.assertEqual(len(calls),1,'no fallback on empty results or rate limits')
