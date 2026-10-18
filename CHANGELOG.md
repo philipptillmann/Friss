@@ -1,3 +1,9 @@
+## 1.29.0 — Home beginnt mit Tageswerten
+
+- Schnellwahl-Kachelbereich von Home entfernen; Getränke behalten ihre Schnellwahl.
+- Links neben den Such- / Barcode-Symbolen einen kompakten Fortschritt zum Kalorienziel anzeigen, alternativ zum ersten gesetzten Makroziel.
+- Verbleibende / überschrittene Menge, fehlende Ziele und unvollständige Werte berücksichtigen.
+
 ## 1.28.2 — Navigation und Überschriften
 
 - Menüfolge: Home, Mahlzeiten, Getränke, Rezepte, Favoriten, Manuell, Statistik, Export, Einstellungen.

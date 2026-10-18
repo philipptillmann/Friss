@@ -94,7 +94,7 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('>Passwort</label>',response.text)
         self.assertNotIn(main.KEY,response.text)
         self.assertIn('id="apiKeyReveal"',response.text)
-        self.assertIn('app.js?v=1.28.2',response.text)
+        self.assertIn('app.js?v=1.29.0',response.text)
         self.assertEqual(response.headers['cache-control'],'no-store')
         self.assertEqual((await self.client.get('/entries',headers={'Authorization':'bad'})).status_code,401)
         await self.client.post('/entries',json=self.payload())

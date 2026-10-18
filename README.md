@@ -422,3 +422,10 @@ Jede Auswahl wird an den eingegebenen Suchbegriff und die Sprache gebunden gespe
 Oben rechts auf **Home** öffnet das Barcode-Symbol direkt die bestehende Foto-Barcode-Erfassung. Das Lupensymbol wechselt zu Mahlzeiten und fokussiert das gemeinsame Suchfeld. Eine noch unklar übertragene Eingabe muss vorher erneut gespeichert oder abgebrochen werden.
 
 API: `GET /search?q=Zucker&lang=de&remote=true&include_recipes=true` liefert `results` und `warnings`. Mit `remote=false` werden nur lokale Daten und bereits gelernte OFF-Treffer verwendet. `POST /search/selections` erwartet UUID `id`, `query`, `lang` und den zurückgegebenen `selection_token` (eine Stunde gültig). Die älteren BLS- und OFF-Endpunkte bleiben für vorhandene Kurzbefehle / Integrationen erhalten.
+
+
+## Home: Tageswerte und kurzer Zielfortschritt (1.29.0)
+
+Home zeigt nach der Aktionszeile direkt die heutigen Werte. Die Schnellwahl-Kacheln bleiben auf **Getränke** verfügbar. Suche und Barcode-Erfassung funktionieren weiterhin über die Symbole oben rechts. Links daneben stehen erreichte Menge / Ziel, Prozent und verbleibende beziehungsweise überschrittene Menge. Bevorzugt wird das Kalorienziel, andernfalls das erste gesetzte Ziel für Protein, Kohlenhydrate oder Fett. Ohne Ziel erscheint ein Hinweis auf die Einstellungen; unbekannte beziehungsweise unvollständige Werte werden nicht als vollständig erreicht dargestellt.
+
+Entwicklungsanfragen werden ab jetzt als GitHub-Issues erfasst und nach Veröffentlichung mit Link zum Implementierungscommit als abgeschlossen markiert.
