@@ -1,3 +1,9 @@
+## 1.29.1 — Rezept- und Getränkeauswahl trennen
+
+- Getrennte Erfassungswege „Rezept essen“ und „Getränk trinken“ zeigen ausschließlich die passende Kategorie.
+- Auswahl über die gemeinsame Suche übernimmt dieselbe Kategorietrennung; Getränke erhalten einen eigenen rosafarbenen Such-Tag statt des gelben Rezept-Tags.
+- Veraltete separate OFF-Suchoption aus der iPhone-Auswahl entfernen. Open Food Facts bleibt Teil der gemeinsamen Suche.
+
 ## 1.29.0 — Home beginnt mit Tageswerten
 
 - Schnellwahl-Kachelbereich von Home entfernen; Getränke behalten ihre Schnellwahl.

@@ -1,5 +1,5 @@
-Object.assign(words.de,{unifiedSearch:'Lebensmittel und Rezepte suchen',sourceBLS:'BLS',sourceOFF:'Open Food Facts',sourceManual:'Eigene Zutat',sourceRecipe:'Rezept',sourceDrink:'Getränkerezept',sourceFavorite:'Favorit',unifiedLoading:'Weitere Produkte aus Open Food Facts werden gesucht …',unifiedOffline:'Lokale Treffer sind verfügbar. Open Food Facts: ',searchHome:'Suchen',searchFav:'Favorit'});
-Object.assign(words.en,{unifiedSearch:'Search foods and recipes',sourceBLS:'BLS',sourceOFF:'Open Food Facts',sourceManual:'My ingredient',sourceRecipe:'Recipe',sourceDrink:'Drink recipe',sourceFavorite:'Favorite',unifiedLoading:'Searching more products in Open Food Facts …',unifiedOffline:'Local results are available. Open Food Facts: ',searchHome:'Search',searchFav:'Favorite'});
+Object.assign(words.de,{unifiedSearch:'Lebensmittel und Rezepte suchen',sourceBLS:'BLS',sourceOFF:'Open Food Facts',sourceManual:'Eigene Zutat',sourceRecipe:'Rezept',sourceDrink:'Getränk',sourceFavorite:'Favorit',unifiedLoading:'Weitere Produkte aus Open Food Facts werden gesucht …',unifiedOffline:'Lokale Treffer sind verfügbar. Open Food Facts: ',searchHome:'Suchen',searchFav:'Favorit'});
+Object.assign(words.en,{unifiedSearch:'Search foods and recipes',sourceBLS:'BLS',sourceOFF:'Open Food Facts',sourceManual:'My ingredient',sourceRecipe:'Recipe',sourceDrink:'Drink',sourceFavorite:'Favorite',unifiedLoading:'Searching more products in Open Food Facts …',unifiedOffline:'Local results are available. Open Food Facts: ',searchHome:'Search',searchFav:'Favorite'});
 (function(){
  let timer=null,sequence=0,shown=[],highlight=-1;
  const label=r=>t(r.source==='recipe'?(r.category==='drink'?'sourceDrink':'sourceRecipe'):{bls:'sourceBLS',off:'sourceOFF',manual:'sourceManual',favorite:'sourceFavorite'}[r.source]);
@@ -10,7 +10,7 @@ Object.assign(words.en,{unifiedSearch:'Search foods and recipes',sourceBLS:'BLS'
   if(result.source==='favorite'){useReusable({entry:result.entry,name_de:result.label,name_en:result.label,id:result.id});$('results').replaceChildren();return;}
   selected=result;$('kind').value='item';
   if(result.source==='bls')selected.bls_code=result.id;
-  if(result.source==='recipe'){$('mealRecipe').value=result.id;$('mealRecipeAmount').value=1;$('mealRecipeUnit').value='portion';updateMealRecipeInfo();}
+  if(result.source==='recipe'){renderMealRecipeChoices();$('mealRecipe').value=result.id;$('mealRecipeAmount').value=1;$('mealRecipeUnit').value='portion';updateMealRecipeInfo();}
   else if(!$('amount').value&&result.default_quantity?.unit==='g')$('amount').value=result.default_quantity.value;
   kindChange(false);$('selected').textContent=result.label+' · '+label(result);$('results').replaceChildren();
   (result.source==='recipe'?$('mealRecipeAmount'):$('amount')).focus();
@@ -19,7 +19,7 @@ Object.assign(words.en,{unifiedSearch:'Search foods and recipes',sourceBLS:'BLS'
   if(editing)results=results.filter(r=>r.source==='bls');
   shown=results;highlight=-1;$('results').replaceChildren();
   for(const result of results){const button=document.createElement('button');button.type='button';button.className='result';button.setAttribute('role','option');button.setAttribute('aria-selected','false');
-   const source=document.createElement('span');source.className='sourceBadge source-'+result.source;source.textContent=label(result);
+   const source=document.createElement('span');source.className='sourceBadge source-'+(result.source==='recipe'&&result.category==='drink'?'drink':result.source);source.textContent=label(result);
    const name=document.createElement('span');name.className='searchResultName';name.textContent=result.label+[result.brand,result.package_quantity].filter(Boolean).map(s=>' · '+s).join('');button.append(source,name);
    if(result.favorite){const star=document.createElement('span');star.className='searchFavorite';star.textContent='★';star.setAttribute('aria-label',t('searchFav'));button.append(star);}
    button.onclick=()=>choose(result,query,language);$('results').append(button);

@@ -429,3 +429,10 @@ API: `GET /search?q=Zucker&lang=de&remote=true&include_recipes=true` liefert `re
 Home zeigt nach der Aktionszeile direkt die heutigen Werte. Die Schnellwahl-Kacheln bleiben auf **Getränke** verfügbar. Suche und Barcode-Erfassung funktionieren weiterhin über die Symbole oben rechts. Links daneben stehen erreichte Menge / Ziel, Prozent und verbleibende beziehungsweise überschrittene Menge. Bevorzugt wird das Kalorienziel, andernfalls das erste gesetzte Ziel für Protein, Kohlenhydrate oder Fett. Ohne Ziel erscheint ein Hinweis auf die Einstellungen; unbekannte beziehungsweise unvollständige Werte werden nicht als vollständig erreicht dargestellt.
 
 Entwicklungsanfragen werden ab jetzt als GitHub-Issues erfasst und nach Veröffentlichung mit Link zum Implementierungscommit als abgeschlossen markiert.
+
+
+### Getrennte Auswahl für Rezeptverzehr und Getränke (1.29.1)
+
+In der Mahlzeitenerfassung zeigt **Rezept essen** ausschließlich Lebensmittelrezepte, **Getränk trinken** ausschließlich gespeicherte Getränke. Ein Getränk aus der Getränkeverwaltung öffnet direkt diese getrennte Auswahl. Auch bei Auswahl über die gemeinsame Suche bleibt die Kategorie erhalten: Rezept-Tags sind gelb, Getränke-Tags rosa und jeweils textlich beschriftet. Alte Definitionen ohne Kategorie gelten weiter als Lebensmittelrezepte; ein vorhandenes Getränk gegebenenfalls über **Als Getränk verschieben** migrieren.
+
+„OFF“ bedeutet **Open Food Facts**. Die veraltete separate Suchoption wurde entfernt; Produkte dieser Datenbank werden über die gemeinsame Suche gefunden und mit dem ausgeschriebenen Quellenlabel angezeigt.

@@ -4,7 +4,7 @@ function element(){return {value:'',textContent:''}}
 let sent=[],confirmed=true;
 const context=vm.createContext({$,document:{createElement:element},recipeRows:[{id:'food',name:'Soup',ingredients:[],servings:1},{id:'drink',name:'Coffee',category:'drink',ingredients:[],servings:1}],currentPage:'alcohol',activeRecipe:'drink',recipeCategory:()=>context.currentPage==='alcohol'?'drink':'food',recipePage:()=>true,recipeDuplicateBusy:false,lang:'en',t:k=>k,formatNumber:String,updateMealRecipeInfo(){},updatePageLabels(){},render(){},refresh:async()=>{},message(){},confirm:()=>confirmed,api:async(path,options)=>{sent.push({path,body:JSON.parse(options.body)});return {amended_entries:2}},recipeDraft:null,uuid:()=> 'new',intakeAttempt:null});
 const source=fs.readFileSync('app/static/app.js','utf8');
-const render=source.slice(source.indexOf('function renderRecipes(){'),source.indexOf('function chooseRecipe(){'));
+const render=source.slice(source.indexOf('function intakeCategory(){'),source.indexOf('function chooseRecipe(){'));
 vm.runInContext(render,context);vm.runInContext('renderRecipes()',context);
 assert.equal($('recipeSelect').children.length,2);assert.equal($('recipeSelect').children[1].value,'drink');assert.equal($('destination').children.length,3);
 assert.equal($('drinkDefinitionFields').hidden,false);
@@ -16,3 +16,4 @@ $('recipeName').value='Coffee';$('servings').value='1';$('recipeVolume').value='
  await $('recipeForm').onsubmit({...event,submitter:{id:'future',disabled:false}});assert.equal(sent[1].body.amend_existing,false);
  console.log('Drinks UI: recipe category filtering, ABV/volume and confirmed save modes passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
+
