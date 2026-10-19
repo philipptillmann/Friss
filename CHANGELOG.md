@@ -1,3 +1,7 @@
+## 1.32.1 — Kategorien auf Home benennen
+
+- #70: Home zeigt „Nährwerte“, „Koffein / Alkohol“ und die bestätigte Überschrift „Mikronährstoffe“; Englisch entsprechend „Nutrition“, „Caffeine / alcohol“, „Micronutrients“.
+
 ## 1.32.0 — ZIP-/JSON-Datensicherung und Wiederherstellung
 
 - Einstellungen: ZIP herunterladen, Sicherung prüfen und nach Bestätigung vollständig wiederherstellen.
