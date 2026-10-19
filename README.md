@@ -452,3 +452,7 @@ Use the one-request [`POST /json-import` workflow](docs/AI_SHORTCUT.md): the Sho
 ### Datensicherung und Wiederherstellung (v1.32.0)
 
 Unter **Einstellungen → Datensicherung und Wiederherstellung** eine ZIP-Datei mit versioniertem JSON und Originaldateien herunterladen. ZIP auswählen, prüfen und nach Sicherheitsabfrage vollständig wiederherstellen. Vorher wird der aktuelle Stand automatisch unter `data/recovery` gesichert. Zugangsdaten bleiben auf dem Server; Apple Health bleibt unverändert. Details und Grenzen: [Backup-Anleitung](docs/BACKUPS.md).
+
+### Originalfotos zu KI-Mahlzeiten (v1.33.0)
+
+Nach `POST /json-import` den zurückgegebenen `entry_id` verwenden und jedes Modell-Eingabefoto als Datei an `PUT /entries/{id}/photos` senden. Bis zu 20 Bilder, je 15 MiB und 40 Megapixel, JPEG/PNG/WebP; HEIC im Kurzbefehl vorher zu JPEG konvertieren. Identische Uploads werden nicht doppelt angelegt. Originale erscheinen in der Eintragsdetailseite und sind in ZIP-Backups enthalten. Das Modellformat bleibt unverändert. [Schritt-für-Schritt-Anleitung für Kurzbefehle](docs/AI_SHORTCUT.md#upload-the-photos-too-v1330).

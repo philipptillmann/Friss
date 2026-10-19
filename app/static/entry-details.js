@@ -1,3 +1,4 @@
+Object.assign(words.de,{originalPhotos:'Originalfotos'});Object.assign(words.en,{originalPhotos:'Original photos'});
 Object.assign(words.de,{backRecipe:'Zurück zum Rezept',backDrink:'Zurück zum Getränk',ingredientNutrients:'Nährwerte dieser Zutat im Rezept',detailAmountHint:'Ändert die Menge und berechnet den Beitrag neu. Gespeicherte Rezeptmahlzeiten bleiben unverändert. Bereits exportierte Health-Werte müssen dort separat korrigiert werden.',detailOriginalMessage:'Ursprüngliche Beschreibung'});
 Object.assign(words.en,{backRecipe:'Back to recipe',backDrink:'Back to drink',ingredientNutrients:'This ingredient’s contribution to the recipe',detailAmountHint:'Changes the amount and recalculates its contribution. Previously logged recipe meals stay unchanged. Previously exported Health values must be corrected there separately.',detailOriginalMessage:'Original description'});
 Object.assign(words.de,{backMeals:'Zurück zu Mahlzeiten',entryNutrients:'Beitrag zu den Tageswerten',captureMethod:'Erfasst über',dataSource:'Datenquelle',healthState:'Apple Health',entryQuantity:'Menge',entryStatus:'Verarbeitung',entryBarcode:'Barcode',entryId:'Eintrags-ID',detailTimeHint:'Die Änderung aktualisiert dein Tagebuch. Bereits exportierte Health-Werte bleiben unverändert; ein betroffener Tagesexport wird als geändert markiert.',entryUnknown:'Unbekannt / noch nicht berechnet',entryDetailsError:'Eintrag konnte nicht geladen werden.',detailManual:'Eigene Zutat',detailRecent:'Zuletzt benutzt',detailFavorite:'Favorit',detailPhoto:'Foto',detailSearch:'Lebensmittelsuche',detailDrink:'Getränke-Eingabe',detailText:'Text',detailRecipe:'Rezept',detailWater:'Getrunkenes Wasser',detailAlcohol:'Reiner Alkohol',detailUnitHint:'Ungeprüfte Quelleinheiten und fehlende Werte sind gekennzeichnet. Die Tabelle zeigt den Beitrag dieser Menge, keine Werte pro 100 g.'});
@@ -11,6 +12,8 @@ function renderEntryDetails(setTime=false){
  const e=detailedEntry;if(!e)return;
  $('detailResolve').hidden=e.status==='processed'||e.health_status!=='pending'||e.type==='recipe';
  $('detailName').textContent=e.food?.['name_'+lang]||e.food?.product_name||e.description||e.barcode||t(e.drink||e.type);
+ $('detailPhotos').hidden=!e.photos?.length;$('detailPhotoList').replaceChildren();
+ for(const [index,photo] of (e.photos||[]).entries()){const link=document.createElement('a');link.href=photo.url;link.target='_blank';link.rel='noopener';const img=document.createElement('img');img.src=photo.url;img.alt=t('originalPhotos')+' '+(index+1);img.loading='lazy';link.append(img);$('detailPhotoList').append(link);}
  $('detailMetadata').replaceChildren();
  const method={manual:'detailManual',item:'detailSearch',picture:'detailPhoto',barcode:'entryBarcode',recipe:'detailRecipe',drink:'detailDrink',text:'detailText'}[e.type];
  detailMetadata('captureMethod',t(e.capture_method==='json_import'?'detailJsonImport':e.capture_method==='recent'?'detailRecent':e.capture_method==='favorite'?'detailFavorite':method||e.type));
@@ -51,7 +54,7 @@ function renderEntryDetails(setTime=false){
  $('detailWarnings').textContent=[t('detailUnitHint'),e.reason,...(e.warnings||[])].filter(Boolean).join(' ');
 }
 async function loadEntryDetails(id){
- const generation=++detailGeneration;detailedEntry=null;detailCopyAttempt=null;$('detailCopyForm').hidden=true;
+ const generation=++detailGeneration;detailedEntry=null;detailCopyAttempt=null;$('detailCopyForm').hidden=true;$('detailPhotos').hidden=true;$('detailPhotoList').replaceChildren();
  $('detailName').textContent='…';$('detailMetadata').replaceChildren();$('detailNutrients').replaceChildren();$('detailWarnings').textContent='';$('detailTimeSave').disabled=true;$('detailDelete').disabled=true;$('detailTimeForm').hidden=true;$('detailAmountForm').hidden=true;$('detailResolve').hidden=true;
  try{
  const entry=await api('/entries/'+encodeURIComponent(id)+'/details');
@@ -94,7 +97,7 @@ $('detailDelete').onclick=async()=>{
  try{const result=await api('/entries/'+id,{method:'DELETE'});detailGeneration++;detailedEntry=null;location.hash=back;await refresh();message(t(result.health_correction_required?'deleteHealthNotice':'deleted'));}
  catch(e){message(e.message,true);$('detailDelete').disabled=false;}
 };
-window.addEventListener('friss-logout',()=>{detailGeneration++;detailCopyAttempt=null;detailedEntry=null;$('detailCopyForm').hidden=true;$('detailCopyForm').reset();$('detailName').textContent='';$('detailMetadata').replaceChildren();$('detailNutrients').replaceChildren();$('detailWarnings').textContent='';$('detailTimeForm').reset();$('detailAmountForm').reset();$('detailAmountForm').hidden=true;});
+window.addEventListener('friss-logout',()=>{detailGeneration++;detailCopyAttempt=null;detailedEntry=null;$('detailPhotos').hidden=true;$('detailPhotoList').replaceChildren();$('detailCopyForm').hidden=true;$('detailCopyForm').reset();$('detailName').textContent='';$('detailMetadata').replaceChildren();$('detailNutrients').replaceChildren();$('detailWarnings').textContent='';$('detailTimeForm').reset();$('detailAmountForm').reset();$('detailAmountForm').hidden=true;});
 window.addEventListener('friss-data-updated',()=>{if(currentPage==='entry'&&detailEntryId()&&!detailedEntry)loadEntryDetails(detailEntryId());});
 new MutationObserver(()=>renderEntryDetails(false)).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 translate();

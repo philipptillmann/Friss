@@ -13,6 +13,7 @@ from uuid import UUID, uuid4, uuid5
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from . import entry_photos
 from . import authentication as login_auth
 from . import bls_units, nutrient_policy
 import time
@@ -77,7 +78,7 @@ async def auth(request: Request, credentials: HTTPAuthorizationCredentials | Non
         return
     raise HTTPException(401, 'Login required')
 
-app = FastAPI(title='Friss', version='1.32.1', lifespan=lifespan)
+app = FastAPI(title='Friss', version='1.33.0', lifespan=lifespan)
 
 BLS_UNITS = bls_units.UNITS
 OFF_MAP = nutrient_policy.OFF_MAP
@@ -311,7 +312,7 @@ async def get_entry(id: UUID):
 @app.get('/entries/{id}/details', dependencies=[Depends(auth)])
 async def entry_details(id: UUID):
     e=load_entry(id)
-    return {**home.interpreted_entry(e,nutrient_policy.enabled(db)),'contributions':home.nutrient_values(e,nutrient_policy.enabled(db))}
+    return {**home.interpreted_entry(e,nutrient_policy.enabled(db)),'contributions':home.nutrient_values(e,nutrient_policy.enabled(db)),'photos':entry_photos.listing(DATA,id)}
 
 class EntryTime(BaseModel):
     timestamp: datetime
@@ -357,6 +358,7 @@ async def copy_entry(id: UUID,body: EntryCopy):
             data=photo.read_bytes()
             if target.exists() and target.read_bytes()!=data:raise HTTPException(409,'Copy photo already exists with different content')
             if not target.exists():target.write_bytes(data)
+        entry_photos.copy(DATA,id,body.id)
         c.execute('INSERT INTO entries VALUES(?,?,?)',(e['id'],fingerprint,json.dumps(e)))
     return e
 
@@ -709,6 +711,7 @@ async def duplicate_recipe(id: UUID,body: RecipeDuplicate):
                     target=DATA/'originals'/f'{eid}.jpeg';data=photo.read_bytes()
                     if target.exists() and target.read_bytes()!=data:raise HTTPException(409,'Ingredient photo already exists with different content')
                     if not target.exists():target.write_bytes(data)
+                entry_photos.copy(DATA,ingredient['id'],eid)
                 fingerprint=hashlib.sha256(text.encode()).hexdigest()
                 c.execute('INSERT INTO entries VALUES(?,?,?)',(eid,fingerprint,json.dumps(e)))
             c.execute('INSERT INTO recipes VALUES(?,?)',(r['id'],json.dumps(r)))
@@ -855,3 +858,5 @@ unified_search.install(app,db,auth,normalize)
 
 from . import backups
 backups.install(app,db,auth,lambda:DATA)
+
+entry_photos.install(app,db,auth,load_entry,lambda:DATA)

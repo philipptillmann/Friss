@@ -1,3 +1,10 @@
+## 1.33.0 — Originalfotos zu KI-Mahlzeiten hochladen
+
+- #76: Authentifizierter Datei-Upload über `PUT /entries/{id}/photos` für bis zu 20 Originalbilder (JPEG/PNG/WebP) pro Eintrag; identische Wiederholungen erzeugen keine Duplikate.
+- KI-Mahlzeitantwort enthält zusätzlich `entry_id` und `photo_upload_url`. Kein neues Modellformat, keine Base64-Konvertierung erforderlich.
+- Originalfotos in der Eintragsdetailseite anzeigen; Dateien unverändert erhalten und bei Eintrags-/Rezeptkopien und ZIP-Sicherungen berücksichtigen.
+- Dateigröße und tatsächliches Bildformat prüfen; Kurzbefehl-Anleitung für Datei-Upload und HEIC-zu-JPEG-Konvertierung ergänzt.
+
 ## 1.32.1 — Kategorien auf Home benennen
 
 - #70: Home zeigt „Nährwerte“, „Koffein / Alkohol“ und die bestätigte Überschrift „Mikronährstoffe“; Englisch entsprechend „Nutrition“, „Caffeine / alcohol“, „Micronutrients“.
