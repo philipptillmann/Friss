@@ -44,12 +44,13 @@ function renderEntryDetails(setTime=false){
  }
  $('detailHealthHint').textContent=t('detailTimeHint');
  $('detailNutrients').replaceChildren();
- for(const [key,n] of Object.entries(e.contributions||{}).sort(([a],[b])=>a.localeCompare(b))){
+ const contributions={...(e.contributions||{})};
+ if(e.drinking_water_ml!=null)contributions.drinking_water_ml={value:e.drinking_water_ml,unit:'ml'};
+ if(e.ethanol_g!=null)contributions.ethanol_g={value:e.ethanol_g,unit:'g'};
+ for(const [key,n] of Object.entries(contributions).sort(([a],[b])=>compareHomeNutrients(a,b))){
  const text=n.value==null?(n.qualifier==null?t('entryUnknown'):String(n.qualifier)):formatHome(n.value)+' '+(n.unit==='mcg'?'µg':n.unit||t('sourceUnits'));
- tableRow($('detailNutrients'),nutrientLabel(key),text);
+ tableRow($('detailNutrients'),key==='drinking_water_ml'?t('detailWater'):key==='ethanol_g'?t('detailAlcohol'):nutrientLabel(key),text);
  }
- if(e.drinking_water_ml!=null)tableRow($('detailNutrients'),t('detailWater'),formatHome(e.drinking_water_ml)+' ml');
- if(e.ethanol_g!=null)tableRow($('detailNutrients'),t('detailAlcohol'),formatHome(e.ethanol_g)+' g');
  if(!$('detailNutrients').children.length)tableRow($('detailNutrients'),t('entryNutrients'),t('entryUnknown'));
  $('detailWarnings').textContent=[t('detailUnitHint'),e.reason,...(e.warnings||[])].filter(Boolean).join(' ');
 }

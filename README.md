@@ -456,3 +456,9 @@ Unter **Einstellungen → Datensicherung und Wiederherstellung** eine ZIP-Datei 
 ### Originalfotos zu KI-Mahlzeiten (v1.33.0)
 
 Nach `POST /json-import` den zurückgegebenen `entry_id` verwenden und jedes Modell-Eingabefoto als Datei an `PUT /entries/{id}/photos` senden. Bis zu 20 Bilder, je 15 MiB und 40 Megapixel, JPEG/PNG/WebP; HEIC im Kurzbefehl vorher zu JPEG konvertieren. Identische Uploads werden nicht doppelt angelegt. Originale erscheinen in der Eintragsdetailseite und sind in ZIP-Backups enthalten. Das Modellformat bleibt unverändert. [Schritt-für-Schritt-Anleitung für Kurzbefehle](docs/AI_SHORTCUT.md#upload-the-photos-too-v1330).
+
+### Quellen und Nährwertreihenfolge (v1.34.0)
+
+Die Mahlzeitenliste zeigt die Datenquelle mit denselben farbigen Tags wie die Suche: BLS, Open Food Facts, eigene Zutaten, Rezepte oder Getränke. Importierte KI-Nährwerte erhalten „KI-Import“, noch nicht zugeordnete Eingaben einen neutralen Tag. Ein Rezepteintrag bleibt als Rezept/Getränk erkennbar, auch wenn seine Zutaten aus BLS stammen. Favoriten behalten den Tag ihrer eigentlichen Nährwertquelle.
+
+Die Eintragsdetails verwenden dieselbe Reihenfolge wie Home: Kalorien, Protein, Kohlenhydrate, Fett, gesättigte Fettsäuren, Zucker, Ballaststoffe, Cholesterin; zusätzlich erfasstes Trinkwasser; Koffein und Alkohol; danach die übrigen vorhandenen Nährstoffe in der Reihenfolge der Home-Mikronährstoffe. Werte, Einheiten und Berechnungen bleiben unverändert.

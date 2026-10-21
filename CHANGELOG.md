@@ -1,3 +1,9 @@
+## 1.34.0 — Nährwertreihenfolge und Quellen-Tags
+
+- #78: Eintragsdetails verwenden dieselbe Reihenfolge wie Home: Kalorien und Makronährstoffe, zusätzlich erfasstes Trinkwasser, Koffein/Alkohol, danach weitere Nährstoffe.
+- Gemeinsame Quellen-Tags in Suche und Mahlzeitenliste: BLS, Open Food Facts, eigene Zutaten, Rezepte und Getränke; KI-Import und nicht zugeordnete Einträge eindeutig ergänzen.
+- Rezept-/Getränkequelle aus dem gespeicherten Rezeptstand bestimmen, auch wenn einzelne Zutaten BLS-Daten verwenden. Nährwerte und Berechnungen bleiben erhalten.
+
 ## 1.33.0 — Originalfotos zu KI-Mahlzeiten hochladen
 
 - #76: Authentifizierter Datei-Upload über `PUT /entries/{id}/photos` für bis zu 20 Originalbilder (JPEG/PNG/WebP) pro Eintrag; identische Wiederholungen erzeugen keine Duplikate.

@@ -36,3 +36,5 @@
 .source-drink{background:#fce2ea;color:#842850}
 
 .entryPhotoGallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin:12px 0}.entryPhotoGallery img{display:block;width:100%;height:160px;object-fit:cover;border-radius:12px}
+
+.entryLink>.sourceBadge{display:inline-block;margin-top:6px}.source-ai{background:#d9efec;color:#205e55}.source-unknown{background:#eceeea;color:#505950}
